@@ -511,3 +511,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .opshr-module-number { display: inline-grid; place-items: center; min-width: 35px; height: 35px; border-radius: 11px; background: rgba(236,22,122,.09); color: #b62265; font-weight: 800; font-size: .75rem; }
 @media(max-width: 900px) { .opshr-shell { display: block; } .opshr-nav { position: static; flex-direction: row; overflow-x: auto; white-space: nowrap; padding: 10px; margin-top: 14px; } .opshr-nav a { flex: 0 0 auto; } }
 @media(max-width: 620px) { .opshr-header { padding: 0 16px; } .opshr-shell { padding: 0 16px; } .opshr-hero { grid-template-columns: 1fr; } .opshr-hero-graphic { display: none; } .opshr-module-grid { grid-template-columns: 1fr; } .opshr-section-heading { align-items: start; flex-direction: column; } }
+
+
+/* App dashboard rather than a marketing landing page */
+.opshr-dashboard-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin:8px 0 22px; }
+.opshr-dashboard-heading h1 { font-size:clamp(1.7rem,3vw,2.3rem); margin:3px 0; letter-spacing:-.05em; }
+.opshr-dashboard-heading p { margin:0; color:#4a5d85; }
+.opshr-dashboard-kicker { font-size:.7rem; font-weight:800; letter-spacing:.12em; color:#ec167a !important; }
+.opshr-dashboard-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-bottom:30px; }
+.opshr-dashboard-summary>div { background:rgba(255,255,255,.85); border:1px solid var(--border); border-radius:18px; padding:20px; display:flex; flex-direction:column; gap:10px; box-shadow:0 12px 25px rgba(3,15,46,.04); }
+.opshr-dashboard-summary span { color:#4a5d85; font-size:.85rem; }
+.opshr-dashboard-summary strong { color:#071b49; font-size:1.2rem; }
+.opshr-shortcut-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.opshr-shortcut { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:9px; padding:23px 18px; min-height:180px; border:1px solid var(--border); border-radius:20px; background:rgba(255,255,255,.85); box-shadow:0 10px 24px rgba(3,15,46,.04); }
+.opshr-shortcut:hover { text-decoration:none; border-color:rgba(236,22,122,.28); transform:translateY(-1px); }
+.opshr-shortcut-icon { display:grid; place-items:center; width:46px; height:46px; border-radius:14px; background:linear-gradient(135deg,#fff1e5,#fff0f7); font-size:1.45rem; }
+.opshr-shortcut strong { color:#071b49; font-size:1rem; }
+.opshr-shortcut small { color:#4a5d85; font-size:.79rem; line-height:1.4; }
+.opshr-shortcut-arrow { position:absolute; right:18px; bottom:15px; color:#ec167a; font-weight:800; }
+@media(max-width:1100px){.opshr-shortcut-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:620px){.opshr-dashboard-heading{align-items:flex-start;flex-direction:column}.opshr-dashboard-summary{grid-template-columns:1fr}.opshr-shortcut-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.opshr-shortcut{padding:16px 12px;min-height:170px;}}
