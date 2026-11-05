@@ -1,5 +1,5 @@
 import Link from "next/link";
-const modules = ["Dokumen", "Laporan"];
+
 export default function Home() {
   return (
     <>
