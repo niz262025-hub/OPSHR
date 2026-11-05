@@ -3,7 +3,7 @@ import type { SessionAuthority, SessionRecord, HrMembership } from "./opshr-sess
 /** Server-only parameterized PostgreSQL query contract. Supply an authenticated
  * restricted DB connection from the server, never browser or untrusted input. */
 export interface SqlQueryClient {
-  query<T extends Record<string, unknown>>(
+  query<T extends object>(
     statement: string, values: readonly (string | number | null)[]
   ): Promise<{ rows: T[] }>;
 }
