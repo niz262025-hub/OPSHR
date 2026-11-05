@@ -1,0 +1,2 @@
+const modules=["Employees","Attendance","Leave","Payroll","Documents","Reports"];
+export default function Home(){return <main><header><strong>MYOPS / OpsHR</strong><span>Development preview</span></header><section className="hero"><h1>OpsHR</h1><p>Human Resource Management within MYOPS</p></section><p className="warning">Preview only. MYOPS authentication and database access are not enabled. Do not enter real employee data.</p><div className="grid">{modules.map(name=><article key={name}><h2>{name}</h2><p>Coming soon</p></article>)}</div></main>}
