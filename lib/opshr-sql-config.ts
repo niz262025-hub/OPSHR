@@ -8,6 +8,8 @@ export type OpshrSqlConfig = Readonly<{
   connectionTimeoutMillis: number;
   idleTimeoutMillis: number;
   max: number;
+  query_timeout: number;
+  allowExitOnIdle: true;
 }>;
 export function readOpshrSqlConfig(
   env: Record<string, string | undefined> = process.env,
@@ -27,16 +29,32 @@ export function readOpshrSqlConfig(
   // This application is bound to the explicitly approved Supabase staging project.
   const host = url.hostname.toLowerCase();
   const direct = host === "db.ojamkplflqafedmxbdxb.supabase.co";
-  const pooler = host.endsWith(".pooler.supabase.com") &&
-    decodeURIComponent(url.username).endsWith(".ojamkplflqafedmxbdxb");
+  const pooler = /^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(host) &&
+    decodeURIComponent(url.username) === "opshr_stage_app.ojamkplflqafedmxbdxb";
   if (!direct && !pooler) throw new Error("Database is not approved OpsFlow Staging");
-  if (url.searchParams.get("sslmode") === "disable") throw new Error("TLS cannot be disabled");
+  if (direct && decodeURIComponent(url.username) !== "opshr_stage_app") {
+    throw new Error("Restricted OpsHR database role required");
+  }
+  if (url.pathname !== "/postgres" || !["", "5432", "6543"].includes(url.port)) {
+    throw new Error("Unapproved database or port");
+  }
+  // pg parses connection-string SSL options after Pool.ssl. Remove the allowed
+  // mode so it cannot replace certificate validation with sslmode=require.
+  for (const [key, value] of url.searchParams) {
+    if (key !== "sslmode" || !["require", "verify-full"].includes(value)) {
+      throw new Error("Unapproved database option; TLS must remain verified");
+    }
+  }
   if (url.hash) throw new Error("Database URL fragments are not supported");
+  url.search = "";
   return {
-    connectionString: raw,
+    connectionString: url.toString(),
     ssl: { rejectUnauthorized: true },
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 10000,
     max: 3,
+    query_timeout: 5000,
+    allowExitOnIdle: true,
   };
 }
+
