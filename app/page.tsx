@@ -7,7 +7,8 @@ const modules = [
   { number: "04", title: "Gaji", description: "Pengiraan gaji demo.", href: "/payroll" },
   { number: "05", title: "Dokumen", description: "Metadata dokumen HR demo.", href: "/documents" },
   { number: "06", title: "Laporan", description: "Ringkasan HR demo.", href: "/reports" },
-  { number: "08", title: "Jana Surat HR", description: "Empat template surat HR dengan pratonton draf.", href: "/letters" },\n  { number: "07", title: "Portal Pekerja", description: "Pratonton ESS menggunakan identiti sintetik.", href: "/staff" },
+  { number: "08", title: "Jana Surat HR", description: "Empat template surat HR dengan pratonton draf.", href: "/letters" },
+  { number: "07", title: "Portal Pekerja", description: "Pratonton ESS menggunakan identiti sintetik.", href: "/staff" },
 ];
 
 export default function Home() {
