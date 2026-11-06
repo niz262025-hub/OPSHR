@@ -1,6 +1,8 @@
 # OpsHR live URL UAT — 7 November 2026 (Malaysia)
 
-**Overall result: FAIL. Full functional V1 UAT is BLOCKED.**
+**Historical result for the old deployed commit: FAIL. Full functional V1 UAT is BLOCKED.**
+
+The owner subsequently authorized assigning the latest protected build to the stable URL. See [the later deployment verification](OPSHR-LIVE-UAT-DEPLOYMENT-2026-11-07.md). The version/dashboard and health-route failures below describe the old build; persistent V1 workflows remain incomplete.
 
 The requested stable live URL was tested directly through an actual browser and authorized Vercel HTTP access. This is separate from the newer Preview where database connectivity passes.
 

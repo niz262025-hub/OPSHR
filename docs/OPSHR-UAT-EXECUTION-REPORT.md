@@ -94,3 +94,8 @@ Rollback for this repair: restore the prior code revision and Preview configurat
 ## Actual stable live URL UAT — 7 November 2026
 
 Executed browser create/edit/deactivate and reload tests on the stable URL. Overall **FAIL**: old demo deployment `59d6f94` remains assigned there; synthetic employee state disappears after reload, central `/launch` and current health endpoint return 404, and V1 approval/document/report/ESS workflows are inactive. See [the full live UAT report](OPSHR-LIVE-UAT-2026-11-07.md) and before/after screenshots. This does not change the separate passing Preview database connectivity result. No live alias or production configuration was changed during UAT.
+
+
+## Owner-authorized controlled Live UAT web deployment — 7 November 2026
+
+Assigned stable URL to tested deployment `dpl_7hQd2k5G6pfZ5cyk8hCY89Vq4zsc` at commit `0b59db478ee26f20bbd690106635eca10d63e5f7`. Actual stable URL now shows the approved dashboard and returns HTTP 200 with DB connected. Existing all-deployment SSO protection retained; no Vercel Production promotion or public release. See [deployment checks and exact rollback baseline](OPSHR-LIVE-UAT-DEPLOYMENT-2026-11-07.md). Full V1 and central authorization remain blocked.
