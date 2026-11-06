@@ -27,11 +27,11 @@ Approve an OpsHR-only controlled-UAT extension to the MYOPS broker, reviewed in 
 
 The implementation PR must contain contract tests proving unchanged behavior for all existing apps and negative tests for wrong client, organization, user, expired/replayed ticket, revoked session, and removed UAT access. This proposal does not authorize applying an unreviewed central change.
 
-## Environment gate
+## Environment gate — connectivity completed 7 November 2026
 
-The existing Preview `OPSHR_STAGING_DATABASE_URL` fails the deployed configuration check. The new probe reports only a fixed reason code, never a credential or raw driver error. If owner configuration is needed, set the server-only Preview variable directly in Vercel using the existing restricted staging role. Do not paste database passwords into chat or commit them. Supply the Supabase CA through an approved server trust mechanism if strict certificate validation requires it; do not disable TLS verification.
+The protected Preview now connects successfully to the approved staging project using the dedicated `opshr_stage_app` role and the verified shared transaction pooler. The official public Supabase CA is bundled and certificate/hostname validation remains enabled. Runtime health returned HTTP 200 and `databaseConnection: connected`; `applicationAuthorization` remains `not_verified`. See the current execution report for exact code and deployment IDs.
 
-No production database variable should be configured until the same target, restricted role, grants, schema isolation and two-company tests are verified. Current code deliberately refuses a production database connection pending this gate.
+Do not configure a production database variable until the same target, restricted role, tenant policies and two-company tests are verified. Current code deliberately refuses a production database connection pending those gates. The central-auth approval requested above remains outstanding.
 
 ## Rollback
 
