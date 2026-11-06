@@ -89,3 +89,8 @@ Latest deployed response: HTTP 200 with `configuration: ready`, `databaseConnect
 New code commits: `a714261b9c6703d16c0cf8baaee2647b89f9a1c2` (safe diagnostics) and `cc614a2a459864c2183ad123c54512643178aafa` (official CA). Latest validation: 68/68 tests, typecheck and build pass. The original failed checks above are historical; the current runtime connectivity result supersedes them.
 
 Rollback for this repair: restore the prior code revision and Preview configuration only if necessary, retaining protection. The prior direct URL was non-working, so reverting to it restores a known failure. No database rollback is required. Never disable certificate verification as a rollback shortcut.
+
+
+## Actual stable live URL UAT — 7 November 2026
+
+Executed browser create/edit/deactivate and reload tests on the stable URL. Overall **FAIL**: old demo deployment `59d6f94` remains assigned there; synthetic employee state disappears after reload, central `/launch` and current health endpoint return 404, and V1 approval/document/report/ESS workflows are inactive. See [the full live UAT report](OPSHR-LIVE-UAT-2026-11-07.md) and before/after screenshots. This does not change the separate passing Preview database connectivity result. No live alias or production configuration was changed during UAT.
