@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readOpshrSqlConfig } from "../../../../lib/opshr-sql-config";
 import { getOpshrStagingPool } from "../../../../lib/opshr-db";
+import { classifyDatabaseConnectionError } from "../../../../lib/database-diagnostics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +39,8 @@ export async function GET() {
       "Unapproved database option; TLS must remain verified": "unapproved_connection_option",
       "Unsafe staging connection": "unsafe_role_or_missing_schema",
     };
-    const reason = error instanceof Error ? messages[error.message] : undefined;
+    const reason = (error instanceof Error ? messages[error.message] : undefined) ??
+      classifyDatabaseConnectionError(error);
     return NextResponse.json({ configuration: configurationReady ? "ready" : "invalid", databaseConnection: configurationReady ? "unavailable" : "not_tested", reason: reason ?? "connection_unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
