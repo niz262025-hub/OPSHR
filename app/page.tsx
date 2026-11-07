@@ -20,7 +20,7 @@ export default function Home() {
           <h1>Dashboard</h1>
           <p>Ringkasan dan akses pantas pengurusan HR.</p>
         </div>
-        <span className="opshr-preview-tag">Preview · Data demo</span>
+        <span className="opshr-preview-tag">Coming Soon · Data contoh</span>
       </div>
       <div className="opshr-dashboard-summary" aria-label="Status modul">
         <div><span>Employee Management</span><strong>Demo</strong></div>

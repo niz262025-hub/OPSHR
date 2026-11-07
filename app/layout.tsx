@@ -30,12 +30,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         <div className="opshr-shell">
+          <details className="opshr-mobile-menu">
+            <summary>Menu OpsHR</summary>
+            <nav aria-label="Navigasi OpsHR mudah alih">
+              {navigation.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
+            </nav>
+          </details>
           <nav className="opshr-nav" aria-label="Navigasi OpsHR">
             {navigation.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
           </nav>
           <main>
             <aside role="note">
-              <strong>Preview pembangunan</strong> — Data contoh sahaja. Jangan masukkan data pekerja sebenar.
+              <strong>OpsHR — Coming Soon</strong> — Data contoh sahaja. Jangan masukkan data pekerja sebenar.
               MYOPS central login dan sambungan database masih belum disahkan untuk kegunaan sebenar.
             </aside>
             {children}
