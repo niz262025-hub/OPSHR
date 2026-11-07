@@ -15,7 +15,7 @@ export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${canonicalJson((value as Record<string, unknown>)[k])}`).join(',')}}`;
 }
-export function brokerConfig(env = process.env) {
+export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   if (env.OPSHR_ENABLE_EMPLOYEES !== 'true') throw new AccessError(503);
   const origin = new URL(env.OPSHR_MYOPS_ORIGIN || 'https://www.myops.com.my');
   if (origin.origin !== 'https://www.myops.com.my' || origin.href !== origin.origin + '/') throw new AccessError(503);
