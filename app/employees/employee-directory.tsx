@@ -1,34 +1,48 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
+import SessionControls from './session-controls';
 import {
   departments,
   statuses,
-  sampleEmployees,
   filterEmployees,
   validateEmployee,
 } from "../../lib/employees";
 import type { Employee, EmployeeInput } from "../../lib/employees";
 
 export default function EmployeeDirectory() {
-  const [rows, setRows] = useState<Employee[]>(sampleEmployees);
+  const [rows, setRows] = useState<Employee[]>([]);
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState<Employee | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [available, setAvailable] = useState(false);
   const [revision, setRevision] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
   const visible = filterEmployees(rows, query, department, status);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch('/api/employees', { cache: 'no-store', signal: controller.signal }).then(async response => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Rekod tidak dapat dimuatkan.');
+      setRows(data.employees);
+      setAvailable(true);
+    }).catch(error => { if (!controller.signal.aborted) setMessage(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, []);
   function openEditor(row: Employee | null) {
     setEditing(row);
     setRevision((value) => value + 1);
     setError("");
     dialog.current?.showModal();
   }
-  function save(event: FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const input = Object.fromEntries(
@@ -47,33 +61,35 @@ export default function EmployeeDirectory() {
       setError(problem);
       return;
     }
-    const employee = {
-      ...input,
-      code: input.code.toUpperCase(),
-      email: input.email.toLowerCase(),
-      id: editing?.id ?? crypto.randomUUID(),
-    };
-    setRows((previous) =>
-      editing
-        ? previous.map((row) => (row.id === editing.id ? employee : row))
-        : [...previous, employee],
-    );
-    setMessage(
-      editing ? "Rekod contoh dikemas kini." : "Pekerja contoh ditambah.",
-    );
-    dialog.current?.close();
+    if (saving) return;
+    setSaving(true);
+    try {
+      const response = await fetch(editing ? `/api/employees/${editing.id}` : '/api/employees', {
+        method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input), cache: 'no-store',
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Rekod tidak dapat disimpan.');
+      const employee: Employee = data.employee;
+      setRows(previous => editing ? previous.map(row => row.id === editing.id ? employee : row) : [...previous, employee]);
+      setMessage(editing ? 'Rekod pekerja dikemas kini.' : 'Pekerja ditambah.');
+      dialog.current?.close();
+    } catch (error) { setError(error instanceof Error ? error.message : 'Rekod tidak dapat disimpan.'); }
+    finally { setSaving(false); }
   }
+
   return (
     <>
       <Link href="/">← Modul OpsHR</Link>
+      <SessionControls />
       <div className="page-heading">
         <div>
           <div className="eyebrow">PENGURUSAN PEKERJA</div>
           <h1>Kenali pasukan anda.</h1>
-          <p>Direktori pekerja · Syarikat Demo</p>
+          <p>Direktori pekerja</p>
         </div>
-        <button className="button" onClick={() => openEditor(null)}>
-          + Tambah pekerja contoh
+        <button className="button" disabled={!available || loading} onClick={() => openEditor(null)}>
+          + Tambah pekerja
         </button>
       </div>
       <div className="stats">
@@ -129,12 +145,12 @@ export default function EmployeeDirectory() {
           </label>
         </div>
         <p className="results" role="status">
-          {visible.length} daripada {rows.length} pekerja contoh
+          {loading ? "Memuatkan…" : visible.length} daripada {rows.length} pekerja
         </p>
         <div className="table-scroll">
           <table>
             <caption className="sr-only">
-              Pekerja contoh dalam Syarikat Demo
+              Direktori pekerja organisasi
             </caption>
             <thead>
               <tr>
@@ -210,10 +226,10 @@ export default function EmployeeDirectory() {
       <dialog ref={dialog} aria-labelledby="employee-title">
         <form key={revision} onSubmit={save}>
           <h2 id="employee-title">
-            {editing ? "Edit pekerja contoh" : "Tambah pekerja contoh"}
+            {editing ? "Edit pekerja" : "Tambah pekerja"}
           </h2>
           <p>
-            Gunakan maklumat rekaan sahaja. Rekod tidak disimpan ke pelayan.
+            Rekod disimpan mengikut organisasi dan kebenaran HR anda.
           </p>
           <div className="form-grid">
             <label>
@@ -295,12 +311,13 @@ export default function EmployeeDirectory() {
             <button
               className="secondary"
               type="button"
+              disabled={saving}
               onClick={() => dialog.current?.close()}
             >
               Batal
             </button>
-            <button className="button" type="submit">
-              Simpan contoh
+            <button className="button" type="submit" disabled={saving}>
+              {saving ? "Menyimpan…" : "Simpan"}
             </button>
           </div>
         </form>
@@ -308,3 +325,4 @@ export default function EmployeeDirectory() {
     </>
   );
 }
+

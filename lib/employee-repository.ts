@@ -11,6 +11,8 @@ export type EmployeeActor = Readonly<{
   sessionActive: boolean;
   hrMembershipActive: boolean;
   appGrantActive: boolean;
+  centralSessionId?: string;
+  centralAppId?: string;
 }>;
 
 export interface EmployeeSqlClient {
@@ -124,6 +126,12 @@ export function createPostgresEmployeeRepository(pool: EmployeeSqlPool) {
                 set_config('opshr.app_grant_active', $3, true)`,
         [actor.identityUserId, actor.organizationId, "true"],
       );
+      if (actor.centralSessionId && actor.centralAppId) {
+        await client.query(
+          "select set_config('opshr.central_session_id', $1, true), set_config('opshr.central_app_id', $2, true)",
+          [actor.centralSessionId, actor.centralAppId],
+        );
+      }
       const result = await operation(client);
       await client.query("commit", []);
       transactionStarted = false;
@@ -213,3 +221,4 @@ export function createPostgresEmployeeRepository(pool: EmployeeSqlPool) {
     },
   };
 }
+
