@@ -5,6 +5,13 @@ import { brokerConfig, canonicalJson, createBroker, issueCookie, readCookie, sig
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 const config = { origin: 'https://www.myops.com.my', appId: 'opshr', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(), secret: 'x'.repeat(48) };
 const sid = '50b4681a-0c62-4f94-8e53-57c086471faf';
+const validBrokerEnv = {
+  OPSHR_ENABLE_EMPLOYEES: 'true',
+  OPSHR_MYOPS_ORIGIN: 'https://www.myops.com.my',
+  OPSHR_MYOPS_APP_ID: 'opshr',
+  OPSHR_MYOPS_PRIVATE_KEY: config.privateKey,
+  OPSHR_COOKIE_SECRET: 'x'.repeat(48),
+};
 test('broker signature matches the existing MYOPS canonical request contract', () => {
   const body = { ticket: 'a'.repeat(43) };
   const headers = signedHeaders('/api/app/redeem', body, config, '1794067916291', 'n'.repeat(32));
@@ -39,4 +46,7 @@ test('redeem and entitlement enforce product, current grant and no passive activ
 test('configuration is default off and rejects alternate broker origin', () => {
   assert.throws(() => brokerConfig({}));
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_ORIGIN: 'https://evil.example' }));
+  assert.throws(() => brokerConfig({ ...validBrokerEnv, OPSHR_MYOPS_ORIGIN: 'not a url' }));
+  assert.throws(() => brokerConfig({ ...validBrokerEnv, OPSHR_MYOPS_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\nnot-a-key\n-----END PRIVATE KEY-----' }));
+  assert.doesNotThrow(() => brokerConfig(validBrokerEnv));
 });

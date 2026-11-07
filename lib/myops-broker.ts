@@ -17,13 +17,19 @@ export function canonicalJson(value: unknown): string {
 }
 export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   if (env.OPSHR_ENABLE_EMPLOYEES !== 'true') throw new AccessError(503);
-  const origin = new URL(env.OPSHR_MYOPS_ORIGIN || 'https://www.myops.com.my');
+  const rawOrigin = env.OPSHR_MYOPS_ORIGIN || 'https://www.myops.com.my';
+  let origin: URL;
+  try { origin = new URL(rawOrigin); } catch { throw new AccessError(503); }
   if (origin.origin !== 'https://www.myops.com.my' || origin.href !== origin.origin + '/') throw new AccessError(503);
   if (!/^[a-z][a-z0-9_-]{1,31}$/.test(env.OPSHR_MYOPS_APP_ID || '') || !env.OPSHR_MYOPS_PRIVATE_KEY || (env.OPSHR_COOKIE_SECRET || '').length < 32) throw new AccessError(503);
+  let key: ReturnType<typeof createPrivateKey>;
+  try { key = createPrivateKey(env.OPSHR_MYOPS_PRIVATE_KEY!); } catch { throw new AccessError(503); }
+  if (key.asymmetricKeyType !== 'ed25519') throw new AccessError(503);
   return { origin: origin.origin, appId: env.OPSHR_MYOPS_APP_ID!, privateKey: env.OPSHR_MYOPS_PRIVATE_KEY!, secret: env.OPSHR_COOKIE_SECRET! };
 }
 export function signedHeaders(path: string, body: object, config: ReturnType<typeof brokerConfig>, timestamp = String(Date.now()), nonce = randomBytes(24).toString('base64url')) {
-  const key = createPrivateKey(config.privateKey);
+  let key: ReturnType<typeof createPrivateKey>;
+  try { key = createPrivateKey(config.privateKey); } catch { throw new AccessError(503); }
   if (key.asymmetricKeyType !== 'ed25519') throw new AccessError(503);
   const hash = createHash('sha256').update(canonicalJson(body)).digest('hex');
   const message = `POST\n${path}\n${config.appId}\ncurrent\n${timestamp}\n${nonce}\n${hash}`;
