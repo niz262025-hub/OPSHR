@@ -1,0 +1,60 @@
+/**
+ * Server-only staging database connection configuration.
+ * Never import from client components or expose via NEXT_PUBLIC_*.
+ */
+export type OpshrSqlConfig = Readonly<{
+  connectionString: string;
+  ssl: { rejectUnauthorized: true };
+  connectionTimeoutMillis: number;
+  idleTimeoutMillis: number;
+  max: number;
+  query_timeout: number;
+  allowExitOnIdle: true;
+}>;
+export function readOpshrSqlConfig(
+  env: Record<string, string | undefined> = process.env,
+): OpshrSqlConfig {
+  if (env.VERCEL_ENV === "production" || env.NODE_ENV === "production" && env.OPSHR_STAGING_ONLY !== "true") {
+    throw new Error("OpsHR SQL connection is disabled outside explicitly marked staging");
+  }
+  const raw = env.OPSHR_STAGING_DATABASE_URL;
+  if (!raw) throw new Error("Missing server-only OPSHR_STAGING_DATABASE_URL");
+  let url: URL;
+  try { url = new URL(raw); }
+  catch { throw new Error("Invalid staging database URL"); }
+  if (url.protocol !== "postgresql:" && url.protocol !== "postgres:") throw new Error("Invalid database protocol");
+  if (!url.username || !url.password || !url.hostname || !url.pathname || url.pathname === "/") {
+    throw new Error("Incomplete staging database credentials");
+  }
+  // This application is bound to the explicitly approved Supabase staging project.
+  const host = url.hostname.toLowerCase();
+  const direct = host === "db.ojamkplflqafedmxbdxb.supabase.co";
+  const pooler = /^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(host) &&
+    decodeURIComponent(url.username) === "opshr_stage_app.ojamkplflqafedmxbdxb";
+  if (!direct && !pooler) throw new Error("Database is not approved OpsFlow Staging");
+  if (direct && decodeURIComponent(url.username) !== "opshr_stage_app") {
+    throw new Error("Restricted OpsHR database role required");
+  }
+  if (url.pathname !== "/postgres" || !["", "5432", "6543"].includes(url.port)) {
+    throw new Error("Unapproved database or port");
+  }
+  // pg parses connection-string SSL options after Pool.ssl. Remove the allowed
+  // mode so it cannot replace certificate validation with sslmode=require.
+  for (const [key, value] of url.searchParams) {
+    if (key !== "sslmode" || !["require", "verify-full"].includes(value)) {
+      throw new Error("Unapproved database option; TLS must remain verified");
+    }
+  }
+  if (url.hash) throw new Error("Database URL fragments are not supported");
+  url.search = "";
+  return {
+    connectionString: url.toString(),
+    ssl: { rejectUnauthorized: true },
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 10000,
+    max: 3,
+    query_timeout: 5000,
+    allowExitOnIdle: true,
+  };
+}
+
