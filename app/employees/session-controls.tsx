@@ -1,0 +1,38 @@
+'use client';
+import { useEffect, useState } from 'react';
+export default function SessionControls() {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    let lastActivitySent = Date.now();
+    let pending = false;
+    async function check(activity: boolean) {
+      if (pending) return;
+      pending = true;
+      try {
+        const response = await fetch('/api/session', { method: activity ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal });
+        if (response.status === 401) location.replace('https://www.myops.com.my/');
+      } catch { /* A temporary network failure must not renew the session. */ }
+      finally { pending = false; }
+    }
+    function activity(event: Event) {
+      if (!event.isTrusted || Date.now() - lastActivitySent < 60000) return;
+      lastActivitySent = Date.now(); void check(true);
+    }
+    const timer = setInterval(() => { void check(false); }, 60000);
+    window.addEventListener('pointerdown', activity, { passive: true });
+    window.addEventListener('keydown', activity);
+    return () => { clearInterval(timer); controller.abort(); window.removeEventListener('pointerdown', activity); window.removeEventListener('keydown', activity); };
+  }, []);
+  async function logout() {
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/api/session', { method: 'DELETE', cache: 'no-store' });
+      if (!response.ok) throw new Error('Log keluar belum selesai. Cuba lagi.');
+      location.replace('https://www.myops.com.my/');
+    } catch (error) { setError(error instanceof Error ? error.message : 'Cuba lagi.'); setBusy(false); }
+  }
+  return <div><button className="secondary" onClick={logout} disabled={busy}>{busy ? 'Log keluar…' : 'Log keluar'}</button>{error ? <p role="alert">{error}</p> : null}</div>;
+}

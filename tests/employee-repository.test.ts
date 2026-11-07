@@ -78,7 +78,7 @@ function persistentMockPool(): EmployeeSqlPool {
           values: readonly (string | number | null)[],
         ) {
           let rows: object[] = [];
-          if (/insert into opshr_stage\.opshr_employees/.test(sql)) {
+          if (/insert into opshr\.opshr_employees/.test(sql)) {
             const [organization_id, employee_code, full_name, work_email,
               department, position_title, start_date, employment_status] = values;
             const created = {
@@ -99,14 +99,14 @@ function persistentMockPool(): EmployeeSqlPool {
             rows = records.filter(
               (record) => record.organization_id === values[0],
             );
-          } else if (/^update opshr_stage\.opshr_employees/.test(sql.trim())) {
+          } else if (/^update opshr\.opshr_employees/.test(sql.trim())) {
             const record = records.find(
               (candidate) =>
                 candidate.id === values[0] &&
                 candidate.organization_id === values[1],
             );
             if (record) rows = [record];
-          } else if (/^delete from opshr_stage\.opshr_employees/.test(sql.trim())) {
+          } else if (/^delete from opshr\.opshr_employees/.test(sql.trim())) {
             const index = records.findIndex(
               (record) =>
                 record.id === values[0] &&

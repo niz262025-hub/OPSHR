@@ -10,10 +10,10 @@ The directory remains a synthetic demo: its UI writes are in component memory an
 
 ## Phase 1 integration status
 
-- The employee migration targets the existing private `opshr_stage` schema and has not been applied. Do not execute it without owner approval.
+- The employee migration targets a new private `opshr` schema in the existing MYOPS-Central-Auth project and has not been applied. Do not execute it without a read-only audit and explicit owner approval.
 - Repository functions require an active session, active HR membership, active OpsHR app grant, and organization-scoped actor. The MYOPS verifier that could establish those facts is unavailable, so no HTTP CRUD endpoint is enabled.
 - The MYOPS integration proposal records that OpsHR is `coming_soon`, has no registered app client, and the current redemption response does not provide authoritative organization membership. Do not invent a launch-token contract or configure production access.
-- Current server-only staging environment variable names: `OPSHR_STAGING_DATABASE_URL` and `OPSHR_STAGING_ONLY`. No SSO environment variable names are approved; request the contract and required names from the MYOPS owner before configuration. Never use `NEXT_PUBLIC_*` for secrets.
+- Current server-only staging environment variable names: `OPSHR_STAGING_DATABASE_URL`, `OPSHR_STAGING_ONLY`, and owner-verified `OPSHR_MYOPS_CENTRAL_PROJECT_REF`. No SSO environment variable names are approved; request the actual contract and required names from the MYOPS owner before configuration. Never use `NEXT_PUBLIC_*` for secrets.
 
 ## Validation
 
@@ -39,5 +39,7 @@ Use Node 22.6+ for TypeScript test execution.
 4. Implement the API/UI binding and verify persistent CRUD and cross-tenant denial with synthetic organizations.
 5. Test persistence, optimistic concurrency, audit records and recovery using synthetic data.
 6. Complete attendance, leave, payroll, documents and reports separately. Payroll statutory scope remains unconfirmed.
+
+The staging-first audit outcome, threat model, synthetic test plan, expected resource impact and manual approval gates are recorded in `docs/OPSHR-MYOPS-CENTRAL-STAGING.md`. The central project has not been inspected from this repository environment; no remote audit, UAT, migration, or access enablement is claimed.
 
 ToyyibPay is outside this milestone. No production data or central product availability is changed.

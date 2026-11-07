@@ -1,6 +1,34 @@
 begin;
 
-create table if not exists opshr_stage.opshr_identity_roles (
+do $migration$
+begin
+  if to_regnamespace('opshr') is not null then
+    raise exception 'Refusing to initialize OpsHR over an existing opshr schema';
+  end if;
+  if not exists (
+    select 1 from pg_catalog.pg_roles
+    where rolname = 'opshr_app'
+      and rolcanlogin
+      and not rolsuper
+      and not rolbypassrls
+      and not rolcreatedb
+      and not rolcreaterole
+      and not rolreplication
+      and not exists (
+        select 1 from pg_catalog.pg_auth_members
+        where member = pg_roles.oid
+      )
+  ) then
+    raise exception 'Restricted non-privileged opshr_app role must exist before migration';
+  end if;
+end
+$migration$;
+
+create schema opshr;
+revoke all on schema opshr from public, anon, authenticated, service_role;
+grant usage on schema opshr to opshr_app;
+
+create table opshr.opshr_identity_roles (
   identity_user_id text not null check (btrim(identity_user_id) <> ''),
   organization_id text not null check (btrim(organization_id) <> ''),
   role text not null check (role in ('hr_admin', 'hr_manager')),
@@ -9,7 +37,7 @@ create table if not exists opshr_stage.opshr_identity_roles (
   primary key (identity_user_id, organization_id)
 );
 
-create table if not exists opshr_stage.opshr_employees (
+create table opshr.opshr_employees (
   id uuid primary key default gen_random_uuid(),
   organization_id text not null check (btrim(organization_id) <> ''),
   employee_code text not null check (btrim(employee_code) <> ''),
@@ -25,28 +53,28 @@ create table if not exists opshr_stage.opshr_employees (
 );
 
 create unique index if not exists opshr_employees_org_code_unique
-  on opshr_stage.opshr_employees (organization_id, lower(employee_code));
+  on opshr.opshr_employees (organization_id, lower(employee_code));
 create unique index if not exists opshr_employees_org_email_unique
-  on opshr_stage.opshr_employees (organization_id, lower(work_email));
+  on opshr.opshr_employees (organization_id, lower(work_email));
 create index if not exists opshr_employees_org_status_idx
-  on opshr_stage.opshr_employees (organization_id, employment_status);
+  on opshr.opshr_employees (organization_id, employment_status);
 
-alter table opshr_stage.opshr_identity_roles enable row level security;
-alter table opshr_stage.opshr_employees enable row level security;
-alter table opshr_stage.opshr_employees force row level security;
+alter table opshr.opshr_identity_roles enable row level security;
+alter table opshr.opshr_employees enable row level security;
+alter table opshr.opshr_employees force row level security;
 
-create or replace function opshr_stage.opshr_current_hr_member(target_organization text)
+create function opshr.opshr_current_hr_member(target_organization text)
 returns boolean
 language sql
 stable
 security definer
-set search_path = pg_catalog, opshr_stage
+set search_path = pg_catalog, opshr
 as $function$
   select current_setting('opshr.app_grant_active', true) = 'true'
     and nullif(current_setting('opshr.organization_id', true), '') = target_organization
     and exists (
       select 1
-      from opshr_stage.opshr_identity_roles as membership
+      from opshr.opshr_identity_roles as membership
       where membership.identity_user_id =
         nullif(current_setting('opshr.identity_user_id', true), '')
         and membership.organization_id = target_organization
@@ -55,28 +83,27 @@ as $function$
     );
 $function$;
 
-revoke all on function opshr_stage.opshr_current_hr_member(text)
+revoke all on function opshr.opshr_current_hr_member(text)
   from public, anon, authenticated, service_role;
-grant execute on function opshr_stage.opshr_current_hr_member(text)
-  to opshr_stage_app;
+grant execute on function opshr.opshr_current_hr_member(text)
+  to opshr_app;
 
 drop policy if exists opshr_employees_hr_tenant_access
-  on opshr_stage.opshr_employees;
+  on opshr.opshr_employees;
 create policy opshr_employees_hr_tenant_access
-  on opshr_stage.opshr_employees
+  on opshr.opshr_employees
   for all
-  to opshr_stage_app
-  using (opshr_stage.opshr_current_hr_member(organization_id))
-  with check (opshr_stage.opshr_current_hr_member(organization_id));
+  to opshr_app
+  using (opshr.opshr_current_hr_member(organization_id))
+  with check (opshr.opshr_current_hr_member(organization_id));
 
-revoke all on table opshr_stage.opshr_identity_roles
-  from public, anon, authenticated, service_role, opshr_stage_app;
-revoke all on table opshr_stage.opshr_employees
+revoke all on table opshr.opshr_identity_roles
+  from public, anon, authenticated, service_role, opshr_app;
+revoke all on table opshr.opshr_employees
   from public, anon, authenticated, service_role;
-revoke create on schema opshr_stage
-  from public, anon, authenticated, service_role, opshr_stage_app;
-grant usage on schema opshr_stage to opshr_stage_app;
-grant select, insert, update, delete on table opshr_stage.opshr_employees
-  to opshr_stage_app;
+revoke create on schema opshr
+  from public, anon, authenticated, service_role, opshr_app;
+grant select, insert, update, delete on table opshr.opshr_employees
+  to opshr_app;
 
 commit;

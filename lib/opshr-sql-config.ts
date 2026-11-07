@@ -14,10 +14,15 @@ export type OpshrSqlConfig = Readonly<{
 export function readOpshrSqlConfig(
   env: Record<string, string | undefined> = process.env,
 ): OpshrSqlConfig {
-  if (env.VERCEL_ENV === "production" || env.NODE_ENV === "production" && env.OPSHR_STAGING_ONLY !== "true") {
+  const production = env.VERCEL_ENV === 'production';
+  if (production ? env.OPSHR_ENABLE_PRODUCTION_DATABASE !== 'true' : env.NODE_ENV === "production" && env.OPSHR_STAGING_ONLY !== "true") {
     throw new Error("OpsHR SQL connection is disabled outside explicitly marked staging");
   }
-  const raw = env.OPSHR_STAGING_DATABASE_URL;
+  const projectRef = env.OPSHR_MYOPS_CENTRAL_PROJECT_REF;
+  if (!projectRef || !/^[a-z0-9]{20}$/.test(projectRef)) {
+    throw new Error("Missing or invalid OPSHR_MYOPS_CENTRAL_PROJECT_REF");
+  }
+  const raw = production ? env.OPSHR_DATABASE_URL : env.OPSHR_STAGING_DATABASE_URL;
   if (!raw) throw new Error("Missing server-only OPSHR_STAGING_DATABASE_URL");
   let url: URL;
   try { url = new URL(raw); }
@@ -26,13 +31,13 @@ export function readOpshrSqlConfig(
   if (!url.username || !url.password || !url.hostname || !url.pathname || url.pathname === "/") {
     throw new Error("Incomplete staging database credentials");
   }
-  // This application is bound to the explicitly approved Supabase staging project.
+  // The server-side project reference must match the connection URL.
   const host = url.hostname.toLowerCase();
-  const direct = host === "db.ojamkplflqafedmxbdxb.supabase.co";
+  const direct = host === `db.${projectRef}.supabase.co`;
   const pooler = /^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(host) &&
-    decodeURIComponent(url.username) === "opshr_stage_app.ojamkplflqafedmxbdxb";
-  if (!direct && !pooler) throw new Error("Database is not approved OpsFlow Staging");
-  if (direct && decodeURIComponent(url.username) !== "opshr_stage_app") {
+    decodeURIComponent(url.username) === `opshr_app.${projectRef}`;
+  if (!direct && !pooler) throw new Error("Database does not match the configured MYOPS Central project");
+  if (direct && decodeURIComponent(url.username) !== "opshr_app") {
     throw new Error("Restricted OpsHR database role required");
   }
   if (url.pathname !== "/postgres" || !["", "5432", "6543"].includes(url.port)) {
