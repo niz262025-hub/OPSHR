@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import SessionControls from './session-controls';
+import { translateEmployeeMessage, translateEmployeeValue } from "../../lib/i18n";
+import { useLocale } from "../locale-provider";
 import {
   departments,
   statuses,
@@ -12,6 +14,7 @@ import {
 import type { Employee, EmployeeInput } from "../../lib/employees";
 
 export default function EmployeeDirectory() {
+  const { locale, number, date, t } = useLocale();
   const [rows, setRows] = useState<Employee[]>([]);
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("");
@@ -29,7 +32,7 @@ export default function EmployeeDirectory() {
     const controller = new AbortController();
     void fetch('/api/employees', { cache: 'no-store', signal: controller.signal }).then(async response => {
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Rekod tidak dapat dimuatkan.');
+      if (!response.ok) throw new Error(data.error || t("recordLoadFailed"));
       setRows(data.employees);
       setAvailable(true);
     }).catch(error => { if (!controller.signal.aborted) setMessage(error.message); })
@@ -69,96 +72,96 @@ export default function EmployeeDirectory() {
         body: JSON.stringify(input), cache: 'no-store',
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Rekod tidak dapat disimpan.');
+      if (!response.ok) throw new Error(data.error || t("recordSaveFailed"));
       const employee: Employee = data.employee;
       setRows(previous => editing ? previous.map(row => row.id === editing.id ? employee : row) : [...previous, employee]);
-      setMessage(editing ? 'Rekod pekerja dikemas kini.' : 'Pekerja ditambah.');
+      setMessage(editing ? "Rekod pekerja dikemas kini." : "Pekerja ditambah.");
       dialog.current?.close();
-    } catch (error) { setError(error instanceof Error ? error.message : 'Rekod tidak dapat disimpan.'); }
+    } catch (error) { setError(error instanceof Error ? error.message : "Rekod tidak dapat disimpan."); }
     finally { setSaving(false); }
   }
 
   return (
     <>
-      <Link href="/">← Modul OpsHR</Link>
+      <Link href="/">{t("moduleBack")}</Link>
       <SessionControls />
       <div className="page-heading">
         <div>
-          <div className="eyebrow">PENGURUSAN PEKERJA</div>
-          <h1>Kenali pasukan anda.</h1>
-          <p>Direktori pekerja</p>
+          <div className="eyebrow">{t("employeeManagementKicker")}</div>
+          <h1>{t("teamHeading")}</h1>
+          <p>{t("employeeDirectory")}</p>
         </div>
         <button className="button" disabled={!available || loading} onClick={() => openEditor(null)}>
-          + Tambah pekerja
+          + {t("addEmployee")}
         </button>
       </div>
       <div className="stats">
         <article>
-          <span>Jumlah pekerja</span>
-          <strong>{rows.length}</strong>
+          <span>{t("totalEmployees")}</span>
+          <strong>{number(rows.length)}</strong>
         </article>
         <article>
-          <span>Aktif</span>
-          <strong>{rows.filter((row) => row.status === "Aktif").length}</strong>
+          <span>{t("active")}</span>
+          <strong>{number(rows.filter((row) => row.status === "Aktif").length)}</strong>
         </article>
         <article>
-          <span>Dalam percubaan</span>
+          <span>{t("probation")}</span>
           <strong>
-            {rows.filter((row) => row.status === "Percubaan").length}
+            {number(rows.filter((row) => row.status === "Percubaan").length)}
           </strong>
         </article>
       </div>
-      <section className="directory" aria-label="Direktori pekerja">
+      <section className="directory" aria-label={t("employeeDirectory")}>
         <div className="filters">
           <label>
-            Carian
+            {t("search")}
             <input
               type="search"
-              placeholder="Nama, kod, e-mel atau jawatan"
+              placeholder={t("searchPlaceholder")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
           <label>
-            Jabatan
+            {t("department")}
             <select
               value={department}
               onChange={(event) => setDepartment(event.target.value)}
             >
-              <option value="">Semua jabatan</option>
+              <option value="">{t("allDepartments")}</option>
               {departments.map((value) => (
-                <option key={value}>{value}</option>
+                <option key={value} value={value}>{translateEmployeeValue(locale, value)}</option>
               ))}
             </select>
           </label>
           <label>
-            Status
+            {t("status")}
             <select
               value={status}
               onChange={(event) => setStatus(event.target.value)}
             >
-              <option value="">Semua status</option>
+              <option value="">{t("allStatuses")}</option>
               {statuses.map((value) => (
-                <option key={value}>{value}</option>
+                <option key={value} value={value}>{translateEmployeeValue(locale, value)}</option>
               ))}
             </select>
           </label>
         </div>
         <p className="results" role="status">
-          {loading ? "Memuatkan…" : visible.length} daripada {rows.length} pekerja
+          {loading ? t("loading") : t("employeesResults", { visible: number(visible.length), total: number(rows.length) })}
         </p>
         <div className="table-scroll">
           <table>
             <caption className="sr-only">
-              Direktori pekerja organisasi
+              {t("employeeRecords")}
             </caption>
             <thead>
               <tr>
-                <th scope="col">Pekerja</th>
-                <th scope="col">Jabatan / Jawatan</th>
-                <th scope="col">Tarikh mula</th>
-                <th scope="col">Status</th>
-                <th scope="col">Tindakan</th>
+                <th scope="col">{t("employee")}</th>
+                <th scope="col">{t("departmentPosition")}</th>
+                <th scope="col">{t("startDate")}</th>
+                <th scope="col">{t("status")}</th>
+                <th scope="col">{t("action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -171,10 +174,10 @@ export default function EmployeeDirectory() {
                     </small>
                   </td>
                   <td>
-                    {row.department}
+                    {translateEmployeeValue(locale, row.department)}
                     <small>{row.position}</small>
                   </td>
-                  <td>{row.startDate}</td>
+                  <td>{date(row.startDate)}</td>
                   <td>
                     <span
                       className={
@@ -186,16 +189,16 @@ export default function EmployeeDirectory() {
                             : "inactive")
                       }
                     >
-                      {row.status}
+                      {translateEmployeeValue(locale, row.status)}
                     </span>
                   </td>
                   <td>
                     <button
                       className="text-button"
-                      aria-label={"Edit " + row.name}
+                      aria-label={`${t("edit")} ${row.name}`}
                       onClick={() => openEditor(row)}
                     >
-                      Edit
+                      {t("edit")}
                     </button>
                   </td>
                 </tr>
@@ -205,8 +208,8 @@ export default function EmployeeDirectory() {
         </div>
         {visible.length === 0 ? (
           <div className="empty">
-            <h2>Tiada pekerja ditemui</h2>
-            <p>Cuba kata carian atau penapis lain.</p>
+            <h2>{t("noEmployees")}</h2>
+            <p>{t("refineSearch")}</p>
             <button
               className="secondary"
               onClick={() => {
@@ -215,25 +218,25 @@ export default function EmployeeDirectory() {
                 setStatus("");
               }}
             >
-              Kosongkan penapis
+              {t("clearFilters")}
             </button>
           </div>
         ) : null}
       </section>
       <p role="status" className="message">
-        {message}
+        {translateEmployeeMessage(locale, message)}
       </p>
       <dialog ref={dialog} aria-labelledby="employee-title">
         <form key={revision} onSubmit={save}>
           <h2 id="employee-title">
-            {editing ? "Edit pekerja" : "Tambah pekerja"}
+            {editing ? t("editEmployee") : t("addEmployeeTitle")}
           </h2>
           <p>
-            Rekod disimpan mengikut organisasi dan kebenaran HR anda.
+            {t("employeeSavedScope")}
           </p>
           <div className="form-grid">
             <label>
-              Kod pekerja
+              {t("employeeCode")}
               <input
                 name="code"
                 required
@@ -243,7 +246,7 @@ export default function EmployeeDirectory() {
               />
             </label>
             <label>
-              Nama penuh
+              {t("fullName")}
               <input
                 name="name"
                 required
@@ -252,7 +255,7 @@ export default function EmployeeDirectory() {
               />
             </label>
             <label className="full">
-              E-mel kerja
+              {t("workEmail")}
               <input
                 name="email"
                 type="email"
@@ -262,18 +265,18 @@ export default function EmployeeDirectory() {
               />
             </label>
             <label>
-              Jabatan
+              {t("department")}
               <select
                 name="department"
                 defaultValue={editing?.department ?? departments[0]}
               >
                 {departments.map((value) => (
-                  <option key={value}>{value}</option>
+                  <option key={value} value={value}>{translateEmployeeValue(locale, value)}</option>
                 ))}
               </select>
             </label>
             <label>
-              Jawatan
+              {t("position")}
               <input
                 name="position"
                 required
@@ -282,7 +285,7 @@ export default function EmployeeDirectory() {
               />
             </label>
             <label>
-              Tarikh mula
+              {t("startDate")}
               <input
                 name="startDate"
                 type="date"
@@ -291,20 +294,20 @@ export default function EmployeeDirectory() {
               />
             </label>
             <label>
-              Status
+              {t("status")}
               <select
                 name="status"
                 defaultValue={editing?.status ?? statuses[0]}
               >
                 {statuses.map((value) => (
-                  <option key={value}>{value}</option>
+                  <option key={value} value={value}>{translateEmployeeValue(locale, value)}</option>
                 ))}
               </select>
             </label>
           </div>
           {error ? (
             <p role="alert" className="form-error">
-              {error}
+              {translateEmployeeMessage(locale, error)}
             </p>
           ) : null}
           <div className="dialog-actions">
@@ -314,10 +317,10 @@ export default function EmployeeDirectory() {
               disabled={saving}
               onClick={() => dialog.current?.close()}
             >
-              Batal
+              {t("cancel")}
             </button>
             <button className="button" type="submit" disabled={saving}>
-              {saving ? "Menyimpan…" : "Simpan"}
+              {saving ? t("saving") : t("save")}
             </button>
           </div>
         </form>
@@ -325,4 +328,3 @@ export default function EmployeeDirectory() {
     </>
   );
 }
-
