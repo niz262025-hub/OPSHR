@@ -149,7 +149,7 @@ export function createPostgresEmployeeRepository(pool: EmployeeSqlPool) {
           `select id, employee_code, full_name, work_email, department,
                   position_title, to_char(start_date, 'YYYY-MM-DD') as start_date,
                   employment_status
-           from opshr_stage.opshr_employees
+           from opshr.opshr_employees
            where organization_id = $1
            order by employee_code`,
           [actor.organizationId],
@@ -162,7 +162,7 @@ export function createPostgresEmployeeRepository(pool: EmployeeSqlPool) {
       const input = validInput(value);
       return withActor(actor, async (client) => {
         const { rows } = await client.query<EmployeeRow>(
-          `insert into opshr_stage.opshr_employees
+          `insert into opshr.opshr_employees
              (organization_id, employee_code, full_name, work_email, department,
               position_title, start_date, employment_status)
            values ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -185,7 +185,7 @@ export function createPostgresEmployeeRepository(pool: EmployeeSqlPool) {
       const input = validInput(value);
       return withActor(actor, async (client) => {
         const { rows } = await client.query<EmployeeRow>(
-          `update opshr_stage.opshr_employees
+          `update opshr.opshr_employees
            set employee_code = $3, full_name = $4, work_email = $5,
                department = $6, position_title = $7, start_date = $8,
                employment_status = $9, updated_at = now()
@@ -203,7 +203,7 @@ export function createPostgresEmployeeRepository(pool: EmployeeSqlPool) {
       if (!validId(id)) throw new Error("Invalid employee id");
       return withActor(actor, async (client) => {
         const { rows } = await client.query<{ id: string }>(
-          `delete from opshr_stage.opshr_employees
+          `delete from opshr.opshr_employees
            where id = $1 and organization_id = $2
            returning id`,
           [id, actor.organizationId],

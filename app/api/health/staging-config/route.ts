@@ -17,9 +17,9 @@ export async function GET() {
     configurationReady = true;
     const { rows } = await getOpshrStagingPool().query(
       `select 1 as connected,
-       current_user = 'opshr_stage_app' as restricted_role,
+       current_user = 'opshr_app' as restricted_role,
        not rolsuper and not rolbypassrls as rls_enforced,
-       to_regnamespace('opshr_stage') is not null as schema_exists
+       to_regnamespace('opshr') is not null as schema_exists
        from pg_roles where rolname = current_user`,
     );
     const ready = rows.length === 1 && rows[0].connected === 1 &&
@@ -30,10 +30,11 @@ export async function GET() {
     // Only fixed diagnostic codes; never return driver messages or URLs.
     const messages: Record<string, string> = {
       "Missing server-only OPSHR_STAGING_DATABASE_URL": "missing_database_url",
+      "Missing or invalid OPSHR_MYOPS_CENTRAL_PROJECT_REF": "missing_or_invalid_project_reference",
       "Invalid staging database URL": "invalid_database_url",
       "Incomplete staging database credentials": "incomplete_credentials",
       "Invalid database protocol": "invalid_protocol",
-      "Database is not approved OpsFlow Staging": "unapproved_host_or_role",
+      "Database does not match the configured MYOPS Central project": "unapproved_host_or_role",
       "Restricted OpsHR database role required": "restricted_role_required",
       "Unapproved database or port": "unapproved_database_or_port",
       "Unapproved database option; TLS must remain verified": "unapproved_connection_option",
@@ -44,4 +45,3 @@ export async function GET() {
     return NextResponse.json({ configuration: configurationReady ? "ready" : "invalid", databaseConnection: configurationReady ? "unavailable" : "not_tested", reason: reason ?? "connection_unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
-

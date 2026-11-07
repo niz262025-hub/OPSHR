@@ -20,7 +20,7 @@ export function createPostgresSessionAuthority(client: SqlQueryClient): SessionA
       if (!/^[A-Za-z0-9_-]{24,128}$/.test(sessionId)) return null;
       const { rows } = await client.query<SessionRow>(
         `select session_id,identity_user_id,organization_id,revoked_at,expires_at,last_activity_at
-         from opshr_stage.opshr_server_sessions
+         from opshr.opshr_server_sessions
          where session_id=$1 and expires_at>now()
          limit 1`,
         [sessionId],
@@ -40,7 +40,7 @@ export function createPostgresSessionAuthority(client: SqlQueryClient): SessionA
     },
     async findHrMembership(identityUserId: string, organizationId: string): Promise<HrMembership | null> {
       const { rows } = await client.query<MembershipRow>(
-        `select role,active from opshr_stage.opshr_hr_approvers
+        `select role,active from opshr.opshr_hr_approvers
          where identity_user_id=$1 and organization_id=$2 and active=true
          limit 1`,
         [identityUserId,organizationId],
