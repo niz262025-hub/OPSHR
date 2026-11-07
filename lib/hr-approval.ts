@@ -19,15 +19,17 @@ export type StaffAccessRecord = Readonly<{
   identityUserId: string;
   status: StaffAccessStatus;
 }>;
-export type ApprovalAction = "approve" | "suspend" | "reinstate";
+export type ApprovalAction = "approve" | "reject" | "suspend" | "reinstate";
 export type ApprovalDecision = Readonly<{
   allowed: boolean;
   reason: "allowed" | "unauthorized" | "cross_tenant" | "invalid_transition" | "self_approval";
   nextStatus?: StaffAccessStatus;
+  action?: ApprovalAction;
 }>;
 
 const transitions: Record<ApprovalAction, { from: StaffAccessStatus; to: StaffAccessStatus }> = {
   approve: { from: "pending", to: "approved" },
+  reject: { from: "pending", to: "pending" },
   suspend: { from: "approved", to: "suspended" },
   reinstate: { from: "suspended", to: "approved" },
 };
@@ -49,10 +51,19 @@ export function authorizeStaffAccessChange(
     return { allowed: false, reason: "self_approval" };
   }
   const transition = transitions[action];
-  if (!transition || target.status !== transition.from) {
+  if (!transition) {
     return { allowed: false, reason: "invalid_transition" };
   }
-  return { allowed: true, reason: "allowed", nextStatus: transition.to };
+  if (action === "reject") {
+    if (target.status !== "pending") {
+      return { allowed: false, reason: "invalid_transition" };
+    }
+    return { allowed: true, reason: "allowed", nextStatus: "pending", action };
+  }
+  if (target.status !== transition.from) {
+    return { allowed: false, reason: "invalid_transition" };
+  }
+  return { allowed: true, reason: "allowed", nextStatus: transition.to, action };
 }
 
 /** Explicit allowlist: never allow the browser to change employee, tenant or identity IDs. */

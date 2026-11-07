@@ -17,7 +17,7 @@ export interface HrApprovalRepository {
     organizationId: string;
     expectedStatus: StaffAccessRecord["status"];
     patch: ReturnType<typeof approvalPatch>;
-    eventType: "staff_access.approved" | "staff_access.suspended" | "staff_access.reinstated";
+    eventType: "staff_access.approved" | "staff_access.rejected" | "staff_access.suspended" | "staff_access.reinstated";
   }): Promise<boolean>;
 }
 export type ApprovalResult =
@@ -26,6 +26,7 @@ export type ApprovalResult =
 
 const eventNames = {
   approve: "staff_access.approved",
+  reject: "staff_access.rejected",
   suspend: "staff_access.suspended",
   reinstate: "staff_access.reinstated",
 } as const;
@@ -50,6 +51,9 @@ export async function processHrApproval(
   const decision = authorizeStaffAccessChange(actor, target, request.action);
   if (!decision.allowed) return { ok: false, error: "forbidden" };
   const patch = approvalPatch(decision, actor, now());
+  if (request.action === "reject" && patch.access_status !== "pending") {
+    return { ok: false, error: "forbidden" };
+  }
   const updated = await repository.updateStatusWithAudit({
     recordId: target.id,
     organizationId: target.organizationId,
