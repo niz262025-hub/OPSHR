@@ -31,7 +31,9 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
       create table public.myops_app_clients(app_id text primary key, product_slug text, enabled boolean);
       create table public.myops_login_sessions(id uuid primary key, user_id uuid, created_at timestamptz default now(), last_activity_at timestamptz default now(), revoked_at timestamptz);
       create table public.myops_app_sessions(id uuid primary key, user_id uuid, app_id text, product_slug text, login_session_id uuid, created_at timestamptz default now(), last_activity_at timestamptz default now(), revoked_at timestamptz);
-      create table public.myops_memberships(user_id uuid, organization_id uuid, status text);
+      create table public.myops_memberships(user_id uuid, organization_id uuid, status text, role text default 'admin');
+      create table public.myops_organizations(id uuid,owner_user_id uuid);
+      create table public.myops_trials(id uuid primary key default gen_random_uuid(),user_id uuid,organization_id uuid,started_at timestamptz,expires_at timestamptz,status text,policy_version integer);
       create table public.myops_app_grants(user_id uuid, organization_id uuid, product_slug text);
       create table public.myops_products(slug text,launch_status text);
       create table public.myops_subscriptions(personal_user_id uuid,organization_id uuid,product_slug text,is_complete_bundle boolean,status text,current_period_end timestamptz);
@@ -43,6 +45,7 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
     await db.exec(await readFile(new URL('../database/migrations/202611070001_employee_master.sql', import.meta.url), 'utf8'));
     await db.exec(await readFile(new URL('../supabase/migrations/20261107174454_central_session_bridge.sql', import.meta.url), 'utf8'));
     await db.exec(await readFile(new URL('../supabase/migrations/20261107181326_opshr_personal_workspace_release.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../supabase/migrations/20261107184134_opshr_free_trial_quota.sql', import.meta.url), 'utf8'));
     const user = '00000000-0000-4000-8000-000000000001';
     const org = '00000000-0000-4000-8000-000000000002';
     const otherOrg = '00000000-0000-4000-8000-000000000003';
@@ -53,7 +56,7 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
     await db.query("insert into public.myops_subscriptions values(null,$1,'opshr',false,'active',now()+interval '1 month')", [org]);
     await db.query('insert into public.myops_login_sessions(id,user_id) values ($1,$2)', [login,user]);
     await db.query("insert into public.myops_app_sessions(id,user_id,app_id,product_slug,login_session_id) values ($1,$2,'opshr','opshr',$3)", [sid,user,login]);
-    await db.query("insert into public.myops_memberships values ($1,$2,'active')", [user,org]);
+    await db.query("insert into public.myops_memberships(user_id,organization_id,status) values ($1,$2,'active')", [user,org]);
     await db.query("insert into public.myops_app_grants values ($1,$2,'opshr')", [user,org]);
     await db.query("insert into opshr.opshr_identity_roles(identity_user_id,organization_id,role,active) values ($1,$2,'hr_admin',true)", [user,org]);
     await db.exec('set role opshr_app');
@@ -118,6 +121,18 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
     assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,1);
     await db.exec('reset role');
     await db.query("update public.myops_subscriptions set status='expired' where personal_user_id=$1",[personalUser]);
+    await db.exec('set role opshr_app');
+    assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,0);
+    await db.exec('reset role');
+    await db.query("insert into public.myops_trials(user_id,started_at,expires_at,status,policy_version) values($1,now(),now()+interval '168 hours','active',1)",[personalUser]);
+    await db.exec('set role opshr_app');
+    assert.equal((await db.query('select * from opshr.resolve_central_actor($1,$2)',[personalSid,'opshr'])).rows.length,1);
+    for(let i=1;i<=29;i++) await db.query("insert into opshr.opshr_employees(organization_id,employee_code,full_name,work_email,department,position_title,start_date,employment_status) values($1,$2,'Trial Synthetic',$3,'Operasi','Tester','2026-11-07','active')",['personal:'+personalUser,'TRIAL-'+i,`trial-${i}@example.test`]);
+    assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,30);
+    await assert.rejects(db.query("insert into opshr.opshr_employees(organization_id,employee_code,full_name,work_email,department,position_title,start_date,employment_status) values($1,'OVER-LIMIT','Trial Synthetic','over@example.test','Operasi','Tester','2026-11-07','active')",['personal:'+personalUser]),/trial employee limit reached/);
+    await db.exec('reset role');
+    assert.equal((await db.query('select count(*)::int as n from opshr.trial_employee_creations')).rows[0].n,29);
+    await db.query("update public.myops_trials set status='expired' where user_id=$1",[personalUser]);
     await db.exec('set role opshr_app');
     assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,0);
     await db.exec('reset role');
