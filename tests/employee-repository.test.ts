@@ -67,6 +67,61 @@ function mockPool(
   return { pool, calls, get releases() { return releases; } };
 }
 
+function persistentMockPool(): EmployeeSqlPool {
+  const records: (typeof row & { organization_id: string })[] = [];
+  let nextId = 0;
+  return {
+    async connect() {
+      return {
+        async query<T extends object>(
+          sql: string,
+          values: readonly (string | number | null)[],
+        ) {
+          let rows: object[] = [];
+          if (/insert into opshr_stage\.opshr_employees/.test(sql)) {
+            const [organization_id, employee_code, full_name, work_email,
+              department, position_title, start_date, employment_status] = values;
+            const created = {
+              ...row,
+              id: `50b4681a-0c62-4f94-8e53-${String(++nextId).padStart(12, "0")}`,
+              organization_id: String(organization_id),
+              employee_code: String(employee_code),
+              full_name: String(full_name),
+              work_email: String(work_email),
+              department: String(department),
+              position_title: String(position_title),
+              start_date: String(start_date),
+              employment_status: String(employment_status) as "active",
+            };
+            records.push(created);
+            rows = [created];
+          } else if (/^select id, employee_code/.test(sql.trim())) {
+            rows = records.filter(
+              (record) => record.organization_id === values[0],
+            );
+          } else if (/^update opshr_stage\.opshr_employees/.test(sql.trim())) {
+            const record = records.find(
+              (candidate) =>
+                candidate.id === values[0] &&
+                candidate.organization_id === values[1],
+            );
+            if (record) rows = [record];
+          } else if (/^delete from opshr_stage\.opshr_employees/.test(sql.trim())) {
+            const index = records.findIndex(
+              (record) =>
+                record.id === values[0] &&
+                record.organization_id === values[1],
+            );
+            if (index >= 0) rows = [records.splice(index, 1)[0]];
+          }
+          return { rows: rows as T[] };
+        },
+        release() {},
+      };
+    },
+  };
+}
+
 test("CRUD queries stay scoped to verified organization and transaction context", async () => {
   const fixture = mockPool((sql) => {
     if (/returning id/.test(sql)) return [{ id: employeeId }];
@@ -116,6 +171,20 @@ test("CRUD queries stay scoped to verified organization and transaction context"
     }
   }
   assert.equal(fixture.releases, 4);
+});
+
+test("synthetic CRUD records persist across repository instances and stay tenant isolated", async () => {
+  const pool = persistentMockPool();
+  const firstRepository = createPostgresEmployeeRepository(pool);
+  const created = await firstRepository.create(actor, input);
+  const afterReload = createPostgresEmployeeRepository(pool);
+  assert.deepEqual(await afterReload.list(actor), [created]);
+  assert.deepEqual(
+    await afterReload.list({ ...actor, organizationId: "synthetic-org-b" }),
+    [],
+  );
+  assert.equal(await afterReload.delete(actor, created.id), true);
+  assert.deepEqual(await firstRepository.list(actor), []);
 });
 
 test("invalid inputs and non-UUID record IDs are rejected", async () => {
