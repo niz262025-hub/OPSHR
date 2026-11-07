@@ -15,6 +15,10 @@ test("rejects missing database URL",()=>{
 test("rejects production Vercel environment",()=>{
  assert.throws(()=>readOpshrSqlConfig({...stagingEnv,VERCEL_ENV:"production"}),/disabled/);
 });
+test("rejects non-production use without an explicit staging flag",()=>{
+ assert.throws(()=>readOpshrSqlConfig({OPSHR_MYOPS_CENTRAL_PROJECT_REF:projectRef,OPSHR_STAGING_DATABASE_URL:url}),/disabled/);
+ assert.throws(()=>readOpshrSqlConfig({OPSHR_STAGING_ONLY:"false",OPSHR_MYOPS_CENTRAL_PROJECT_REF:projectRef,OPSHR_STAGING_DATABASE_URL:url}),/disabled/);
+});
 test('production requires its own explicit gate and server-only URL',()=>{
  const production={OPSHR_MYOPS_CENTRAL_PROJECT_REF:projectRef,VERCEL_ENV:'production',OPSHR_ENABLE_PRODUCTION_DATABASE:'true',OPSHR_DATABASE_URL:url};
  assert.equal(readOpshrSqlConfig(production).ssl.rejectUnauthorized,true);
@@ -29,7 +33,6 @@ test("rejects unrelated project",()=>{
 test("rejects disabled TLS",()=>{
  assert.throws(()=>readOpshrSqlConfig({...stagingEnv,OPSHR_STAGING_DATABASE_URL:url.replace("sslmode=require","sslmode=disable")}),/TLS/);
 });
-
 
 // Construct the real driver without connecting: URL SSL parsing must not undo verification.
 test("pg keeps certificate verification when URL originally contained sslmode=require",()=>{
@@ -52,9 +55,15 @@ test("rejects other databases, ports and URL fragments",()=>{
  }
 });
 test("requires a project reference and accepts direct connections only with the restricted role",()=>{
- assert.throws(()=>readOpshrSqlConfig({OPSHR_STAGING_DATABASE_URL:url}),/OPSHR_MYOPS_CENTRAL_PROJECT_REF/);
- const direct=`postgresql://opshr_app:synthetic-test-password@db.${projectRef}.supabase.co:5432/postgres`;
- assert.equal(readOpshrSqlConfig({...stagingEnv,OPSHR_STAGING_DATABASE_URL:direct}).ssl.rejectUnauthorized,true);
- assert.throws(()=>readOpshrSqlConfig({...stagingEnv,OPSHR_STAGING_DATABASE_URL:direct.replace("opshr_app:","postgres:")}),/Restricted OpsHR database role/);
+ assert.throws(()=>readOpshrSqlConfig({OPSHR_STAGING_ONLY:"true",OPSHR_STAGING_DATABASE_URL:url}),/OPSHR_MYOPS_CENTRAL_PROJECT_REF/);
+ const direct = new URL(url);
+ direct.hostname = `db.${projectRef}.supabase.co`;
+ direct.port = "5432";
+ direct.pathname = "/postgres";
+ direct.search = "?sslmode=require";
+ direct.username = "opshr_app";
+ direct.password = "synthetic-test-password";
+ assert.equal(readOpshrSqlConfig({...stagingEnv,OPSHR_STAGING_DATABASE_URL:direct.toString()}).ssl.rejectUnauthorized,true);
+ direct.username = "postgres";
+ assert.throws(()=>readOpshrSqlConfig({...stagingEnv,OPSHR_STAGING_DATABASE_URL:direct.toString()}),/Restricted OpsHR database role/);
 });
-
