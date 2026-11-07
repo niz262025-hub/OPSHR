@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useLocale } from '../locale-provider';
 export default function SessionControls() {
-  const [error, setError] = useState('');
+  const { t } = useLocale();
+  const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
@@ -27,12 +29,12 @@ export default function SessionControls() {
   }, []);
   async function logout() {
     if (busy) return;
-    setBusy(true); setError('');
+    setBusy(true); setError(false);
     try {
       const response = await fetch('/api/session', { method: 'DELETE', cache: 'no-store' });
-      if (!response.ok) throw new Error('Log keluar belum selesai. Cuba lagi.');
+      if (!response.ok) throw new Error(t('logoutFailed'));
       location.replace('https://www.myops.com.my/');
-    } catch (error) { setError(error instanceof Error ? error.message : 'Cuba lagi.'); setBusy(false); }
+    } catch { setError(true); setBusy(false); }
   }
-  return <div><button className="secondary" onClick={logout} disabled={busy}>{busy ? 'Log keluar…' : 'Log keluar'}</button>{error ? <p role="alert">{error}</p> : null}</div>;
+  return <div><button className="secondary" onClick={logout} disabled={busy}>{busy ? t('loggingOut') : t('logout')}</button>{error ? <p role="alert">{t('logoutFailed')}</p> : null}</div>;
 }

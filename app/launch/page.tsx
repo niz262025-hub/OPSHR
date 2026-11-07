@@ -1,18 +1,20 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useLocale } from '../locale-provider';
 export default function Launch() {
+  const { t } = useLocale();
   const started = useRef(false);
-  const [message, setMessage] = useState('Membuka OpsHR…');
+  const [message, setMessage] = useState<'launchLoading' | 'invalidSession' | 'launchFailed'>('launchLoading');
   useEffect(() => {
     if (started.current) return;
     started.current = true;
     const ticket = new URLSearchParams(location.hash.slice(1)).get('t');
     history.replaceState(null, '', '/launch');
-    if (!ticket) { setMessage('Sesi tidak sah. Buka OpsHR melalui MYOPS.'); return; }
+    if (!ticket) { setMessage('invalidSession'); return; }
     void fetch('/api/session/launch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket }), cache: 'no-store' }).then(async response => {
-      if (!response.ok) throw new Error('OpsHR belum dapat dibuka. Cuba semula melalui MYOPS.');
+      if (!response.ok) throw new Error('launchFailed');
       location.replace('/employees');
-    }).catch(error => setMessage(error.message));
-  }, []);
-  return <section><h1>OpsHR</h1><p role="status">{message}</p><a href="https://www.myops.com.my/">Kembali ke MYOPS</a></section>;
+    }).catch(() => setMessage('launchFailed'));
+  }, [t]);
+  return <section><h1>OpsHR</h1><p role="status">{t(message)}</p><a href="https://www.myops.com.my/">{t('backToMyops')}</a></section>;
 }

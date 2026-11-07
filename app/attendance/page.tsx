@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { sampleEmployees } from "../../lib/employees";
+import { translateEmployeeValue } from "../../lib/i18n";
+import { useLocale } from "../locale-provider";
 
 const demoAttendance = [
   { employeeId: "demo-1", date: "2026-11-05", status: "Hadir" },
@@ -8,28 +12,29 @@ const demoAttendance = [
 ];
 
 export default function AttendancePage() {
+  const { t, date, locale } = useLocale();
   return (
     <>
-      <Link href="/">← Modul OpsHR</Link>
+      <Link href="/">{t("moduleBack")}</Link>
       <div className="page-heading">
         <div>
-          <div className="eyebrow">KEHADIRAN</div>
-          <h1>Ringkasan kehadiran</h1>
-          <p>Data sintetik untuk semakan reka bentuk sahaja.</p>
+          <div className="eyebrow">{t("attendanceKicker")}</div>
+          <h1>{t("attendanceSummary")}</h1>
+          <p>{t("syntheticDesignData")}</p>
         </div>
       </div>
-      <section className="directory" aria-label="Ringkasan kehadiran demo">
+      <section className="directory" aria-label={t("attendanceDemo")}>
         <div className="table-scroll">
           <table>
-            <thead><tr><th scope="col">Pekerja</th><th scope="col">Tarikh</th><th scope="col">Status</th></tr></thead>
+            <thead><tr><th scope="col">{t("employee")}</th><th scope="col">{t("date")}</th><th scope="col">{t("status")}</th></tr></thead>
             <tbody>
               {demoAttendance.map((record) => {
                 const employee = sampleEmployees.find((row) => row.id === record.employeeId);
                 return (
                   <tr key={record.employeeId}>
                     <td>{employee?.name ?? "Rekod demo"}</td>
-                    <td>{record.date}</td>
-                    <td>{record.status}</td>
+                    <td>{date(record.date)}</td>
+                    <td>{translateEmployeeValue(locale, record.status)}</td>
                   </tr>
                 );
               })}
@@ -37,7 +42,7 @@ export default function AttendancePage() {
           </table>
         </div>
       </section>
-      <p className="message">Paparan demo sahaja. Tiada punch-in, permohonan cuti atau penyimpanan data.</p>
+      <p className="message">{t("demoOnlyNoStorage")}</p>
     </>
   );
 }
