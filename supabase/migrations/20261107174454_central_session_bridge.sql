@@ -18,6 +18,20 @@ as $fn$
     and l.last_activity_at > now() - interval '15 minutes' and l.last_activity_at <= now()
     and s.created_at > now() - interval '12 hours' and s.created_at <= now()
     and l.created_at > now() - interval '12 hours' and l.created_at <= now()
+    and exists (select 1 from public.myops_products p where p.slug='opshr' and p.launch_status='live')
+    and (
+      exists (
+        select 1 from public.myops_subscriptions sub
+        where sub.status='active' and (sub.current_period_end is null or sub.current_period_end > now())
+          and (sub.product_slug='opshr' or sub.is_complete_bundle)
+          and ((sub.personal_user_id is null and sub.organization_id=m.organization_id)
+            or sub.personal_user_id=s.user_id)
+      )
+      or exists (
+        select 1 from public.myops_lifetime_entitlements e
+        where e.user_id=s.user_id and e.status='active' and e.scope='all_apps'
+      )
+    )
     and r.role in ('hr_admin', 'hr_manager');
 $fn$;
 revoke all on function opshr.resolve_central_actor(uuid,text) from public,anon,authenticated,service_role;

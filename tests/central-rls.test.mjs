@@ -14,6 +14,9 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
       create table public.myops_app_sessions(id uuid primary key, user_id uuid, app_id text, product_slug text, login_session_id uuid, created_at timestamptz default now(), last_activity_at timestamptz default now(), revoked_at timestamptz);
       create table public.myops_memberships(user_id uuid, organization_id uuid, status text);
       create table public.myops_app_grants(user_id uuid, organization_id uuid, product_slug text);
+      create table public.myops_products(slug text,launch_status text);
+      create table public.myops_subscriptions(personal_user_id uuid,organization_id uuid,product_slug text,is_complete_bundle boolean,status text,current_period_end timestamptz);
+      create table public.myops_lifetime_entitlements(user_id uuid,status text,scope text);
       create function public.myops_login_end(p_id uuid,p_user_id uuid,p_reason text) returns boolean language plpgsql as $$
       begin update public.myops_login_sessions set revoked_at=now() where id=p_id and user_id=p_user_id; return found; end; $$;
     `);
@@ -25,6 +28,8 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
     const login = '00000000-0000-4000-8000-000000000004';
     const sid = '00000000-0000-4000-8000-000000000005';
     await db.query(`insert into public.myops_app_clients values ('opshr','opshr',true)`);
+    await db.query("insert into public.myops_products values ('opshr','live')");
+    await db.query("insert into public.myops_subscriptions values(null,$1,'opshr',false,'active',now()+interval '1 month')", [org]);
     await db.query('insert into public.myops_login_sessions(id,user_id) values ($1,$2)', [login,user]);
     await db.query("insert into public.myops_app_sessions(id,user_id,app_id,product_slug,login_session_id) values ($1,$2,'opshr','opshr',$3)", [sid,user,login]);
     await db.query("insert into public.myops_memberships values ($1,$2,'active')", [user,org]);
@@ -50,6 +55,12 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
     await setContext(org);
     await assert.rejects(db.query('update opshr.opshr_employees set organization_id=$1', [otherOrg]));
     await db.exec('reset role');
+    await db.query("update public.myops_subscriptions set current_period_end=now()-interval '1 minute'");
+    await db.query("insert into public.myops_subscriptions values(null,$1,'opshr',false,'active',now()+interval '1 month')", [otherOrg]);
+    await db.exec('set role opshr_app');
+    assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,0);
+    await db.exec('reset role');
+    await db.query("update public.myops_subscriptions set current_period_end=now()+interval '1 month'");
     await db.query("update public.myops_app_sessions set last_activity_at=now()-interval '15 minutes'");
     await db.exec('set role opshr_app');
     assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,0);
