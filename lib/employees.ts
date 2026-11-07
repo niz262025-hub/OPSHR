@@ -16,6 +16,26 @@ export type Employee = {
   status: (typeof statuses)[number];
 };
 export type EmployeeInput = Omit<Employee, "id">;
+export function parseEmployeeInput(value: unknown): EmployeeInput | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>;
+  const keys = [
+    "code",
+    "name",
+    "email",
+    "department",
+    "position",
+    "startDate",
+    "status",
+  ];
+  if (
+    Object.keys(input).some((key) => !keys.includes(key)) ||
+    keys.some((key) => typeof input[key] !== "string")
+  ) {
+    return null;
+  }
+  return input as EmployeeInput;
+}
 export const sampleEmployees: Employee[] = [
   {
     id: "demo-1",
