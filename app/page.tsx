@@ -1,5 +1,5 @@
 import Link from "next/link";
-const modules = ["Kehadiran", "Cuti", "Gaji", "Dokumen", "Laporan"];
+const modules = ["Cuti", "Gaji", "Dokumen", "Laporan"];
 export default function Home() {
   return (
     <>
@@ -23,9 +23,9 @@ export default function Home() {
           <p>Direktori, jabatan dan status pekerjaan.</p>
           <Link href="/employees">Buka demo →</Link>
         </article>
-        {modules.map((name, i) => (
+        <article>\n          <span className="eyebrow">02 · DEMO</span>\n          <h2>Kehadiran</h2>\n          <p>Ringkasan kehadiran menggunakan rekod contoh.</p>\n          <Link href="/attendance">Buka demo →</Link>\n        </article>\n        {modules.map((name, i) => (
           <article key={name}>
-            <span className="eyebrow">0{i + 2}</span>
+            <span className="eyebrow">0{i + 3}</span>
             <h2>{name}</h2>
             <p>Dalam perancangan</p>
           </article>
