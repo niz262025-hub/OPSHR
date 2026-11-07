@@ -2,6 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
+import { generateKeyPairSync } from 'node:crypto';
+
+test('OpsHR registry expansion preserves existing client checks and validates new Ed25519 keys', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`create table public.myops_app_clients(app_id text primary key,
+      public_key_current text not null,
+      constraint myops_app_clients_app_id_check check(app_id in ('opsfinance','opsflow','opsp')),
+      constraint myops_app_clients_public_key_current_check check(public_key_current='existing-key'));
+      insert into public.myops_app_clients values ('opsfinance','existing-key');`);
+    await db.exec(await readFile(new URL('../supabase/migrations/20261107180021_register_opshr_client.sql', import.meta.url), 'utf8'));
+    const { publicKey } = generateKeyPairSync('ed25519');
+    const pem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    await db.query("insert into public.myops_app_clients values('opshr',$1)", [pem]);
+    await assert.rejects(db.query("insert into public.myops_app_clients values('opsflow',$1)", [pem]));
+    await assert.rejects(db.query("update public.myops_app_clients set public_key_current='invalid' where app_id='opshr'"));
+    assert.equal((await db.query("select public_key_current from public.myops_app_clients where app_id='opsfinance'")).rows[0].public_key_current,'existing-key');
+  } finally { await db.close(); }
+});
 
 test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and public roles', async () => {
   const db = new PGlite();

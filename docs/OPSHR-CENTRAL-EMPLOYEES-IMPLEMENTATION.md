@@ -20,9 +20,15 @@ Prepared 8 November 2026 (Malaysia). This implementation builds on PR #38.
 - `npm run build`: checked after implementation. This is a local build, not authenticated browser UAT.
 - The embedded database uses minimal synthetic central table/function fixtures. It is not an assertion that production migrations, permissions or central logout are verified.
 
-## Activation still blocked
+## Activation progress — 8 November 2026 (Malaysia)
 
-Read-only inspection confirmed that MYOPS-Central-Auth has no `opshr` schema, no registered OpsHR broker client, and public catalog status remains `coming_soon`. No production database, client, grant, catalog, secret or Vercel configuration was modified by this implementation.
+The owner subsequently authorized activation. Applied the private employee schema and central-session bridge to the existing MYOPS-Central-Auth project. Provisioned the restricted `opshr_app` role and registered/enabled the OpsHR broker client. Saved seven server variables scoped only to the `codex/opshr-central-employees` Preview branch. No additional project or paid resource was created.
+
+The Preview redeployment `dpl_Hw6Vb2AnLNnY9cHcFYKEsZcdjdWG` is READY. Its deployed health check reports configuration ready but `database_dns_not_found` for the direct Supabase host. The official project pooler address is still required; the dashboard is currently at its sign-in screen. Database connectivity and authenticated UAT remain blocked. Public catalog remains `coming_soon`, no HR role or customer grants were seeded, and no customer access was enabled.
+
+Post-migration inspection confirms RLS on both private tables and forced RLS on employees. The app role has no superuser, bypass-RLS, create-role, create-database or replication rights, no public-schema CREATE and no direct SELECT on central login sessions. Anonymous roles have no HR-table SELECT. The advisor's private identity-role table no-policy INFO is intentional default-deny; its existing leaked-password-protection WARN predates these changes.
+
+Registry migration expands the existing three-app identifier constraint only by OpsHR and accepts correctly encoded Ed25519 PEM keys only for the new OpsHR row; existing app key checks are preserved. Client key values and database credentials are not stored in source.
 
 Required server-only environment names:
 
@@ -45,4 +51,4 @@ Attendance, Leave, Payroll, private HR Documents, Reports and ESS remain incompl
 
 ## Rollback
 
-Turn off `OPSHR_ENABLE_EMPLOYEES`, disable the OpsHR broker client and revoke its sessions. Restore the prior OpsHR deployment. Revoke `opshr_app` usage/execute/table grants without dropping HR data. Preserve central identity/auth tables and other applications. Database migrations are reviewable source only and have not been applied to production.
+Turn off `OPSHR_ENABLE_EMPLOYEES`, disable the OpsHR broker client and revoke its sessions. Restore the prior OpsHR deployment. Revoke `opshr_app` usage/execute/table grants without dropping HR data. Preserve central identity/auth tables and other applications. The private schema and bridge have now been applied under owner authorization. Production application activation remains blocked; reverting source alone does not undo the database or broker registration.
