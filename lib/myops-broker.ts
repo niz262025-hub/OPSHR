@@ -19,7 +19,7 @@ export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   if (env.OPSHR_ENABLE_EMPLOYEES !== 'true') throw new AccessError(503);
   const origin = new URL(env.OPSHR_MYOPS_ORIGIN || 'https://www.myops.com.my');
   if (origin.origin !== 'https://www.myops.com.my' || origin.href !== origin.origin + '/') throw new AccessError(503);
-  if (!/^[a-z][a-z0-9_-]{1,31}$/.test(env.OPSHR_MYOPS_APP_ID || '') || !env.OPSHR_MYOPS_PRIVATE_KEY || (env.OPSHR_COOKIE_SECRET || '').length < 32) throw new AccessError(503);
+  if ((env.OPSHR_MYOPS_APP_ID || '') !== 'opshr' || !env.OPSHR_MYOPS_PRIVATE_KEY || (env.OPSHR_COOKIE_SECRET || '').length < 32) throw new AccessError(503);
   return { origin: origin.origin, appId: env.OPSHR_MYOPS_APP_ID!, privateKey: env.OPSHR_MYOPS_PRIVATE_KEY!, secret: env.OPSHR_COOKIE_SECRET! };
 }
 export function signedHeaders(path: string, body: object, config: ReturnType<typeof brokerConfig>, timestamp = String(Date.now()), nonce = randomBytes(24).toString('base64url')) {
