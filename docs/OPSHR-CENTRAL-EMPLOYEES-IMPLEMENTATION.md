@@ -16,7 +16,7 @@ Prepared 8 November 2026 (Malaysia). This implementation builds on PR #38.
 ## Verification
 
 - `npm test`: 83 unit/HTTP/contract tests passed.
-- `npm run test:db`: one embedded PostgreSQL integration suite passed. It executes both migrations and real RLS policies, covering persistent insert/read, wrong client, missing session, forged tenant context, reassignment denial, 15-minute expiry, central revocation, removed app grant, linked logout and no direct public-role access.
+- `npm run test:db`: two embedded PostgreSQL tests passed. It executes both migrations and real RLS policies, covering persistent insert/read, wrong client, missing session, forged tenant context, reassignment denial, 15-minute expiry, central revocation, removed app grant, linked logout and no direct public-role access.
 - `npm run build`: checked after implementation. This is a local build, not authenticated browser UAT.
 - The embedded database uses minimal synthetic central table/function fixtures. It is not an assertion that production migrations, permissions or central logout are verified.
 
@@ -24,7 +24,9 @@ Prepared 8 November 2026 (Malaysia). This implementation builds on PR #38.
 
 The owner subsequently authorized activation. Applied the private employee schema and central-session bridge to the existing MYOPS-Central-Auth project. Provisioned the restricted `opshr_app` role and registered/enabled the OpsHR broker client. Saved seven server variables scoped only to the `codex/opshr-central-employees` Preview branch. No additional project or paid resource was created.
 
-The Preview redeployment `dpl_Hw6Vb2AnLNnY9cHcFYKEsZcdjdWG` is READY. Its deployed health check reports configuration ready but `database_dns_not_found` for the direct Supabase host. The official project pooler address is still required; the dashboard is currently at its sign-in screen. Database connectivity and authenticated UAT remain blocked. Public catalog remains `coming_soon`, no HR role or customer grants were seeded, and no customer access was enabled.
+Signed-in Supabase Connect verified shared IPv4 transaction pooler `aws-0-ap-northeast-2.pooler.supabase.com:6543`. Updated the branch-scoped restricted database URL. Preview `dpl_a1MSLKNciTNBVmMDeJMfUtYNL4q6` at commit `4e07c8468ed5022896ce97d37b42fca21887e2fd` is READY. Its deployed health endpoint returned HTTP 200 with `configuration: ready`, `databaseConnection: connected`, and `applicationAuthorization: not_verified`.
+
+The earlier direct-host DNS failure is resolved. A subsequent employee endpoint fetch hit Vercel deployment authentication and could not verify the application's own 401/403 response. Authenticated MYOPS launch, persistent employee CRUD browser UAT, local HR assignment and organization-grant fixtures remain outstanding. Public catalog stays `coming_soon`; customer enablement and production database gate remain closed. No real employee or payroll records were entered.
 
 Post-migration inspection confirms RLS on both private tables and forced RLS on employees. The app role has no superuser, bypass-RLS, create-role, create-database or replication rights, no public-schema CREATE and no direct SELECT on central login sessions. Anonymous roles have no HR-table SELECT. The advisor's private identity-role table no-policy INFO is intentional default-deny; its existing leaked-password-protection WARN predates these changes.
 
