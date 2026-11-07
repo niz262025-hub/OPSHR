@@ -23,6 +23,7 @@ export function failure(error: unknown): Response {
   if (error instanceof AccessError) return json({ error: error.message }, error.status);
   if (error instanceof EmployeeAccessDenied) return json({ error: 'Tiada kebenaran HR.' }, 403);
   if (error && typeof error === 'object' && 'code' in error && error.code === '23505') return json({ error: 'Kod atau e-mel pekerja sudah digunakan.' }, 409);
+  if (error && typeof error === 'object' && 'code' in error && error.code === 'P0001' && 'message' in error && error.message === 'OpsHR trial employee limit reached') return json({ error: 'Had percubaan 30 rekod pekerja telah dicapai. Naik taraf di MYOPS untuk meneruskan.' }, 403);
   return json({ error: 'Rekod tidak dapat diproses. Cuba lagi.' }, 503);
 }
 export function employeeHandler(deps: { actor: (request: Request, activity: boolean) => Promise<EmployeeActor>; repository: () => Repository }) {
