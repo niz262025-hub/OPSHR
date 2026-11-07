@@ -1,5 +1,5 @@
 import Link from "next/link";
-const modules = ["Dokumen", "Laporan"];
+
 export default function Home() {
   return (
     <>
@@ -23,13 +23,36 @@ export default function Home() {
           <p>Direktori, jabatan dan status pekerjaan.</p>
           <Link href="/employees">Buka demo →</Link>
         </article>
-        <article>\n          <span className="eyebrow">02 · DEMO</span>\n          <h2>Kehadiran</h2>\n          <p>Ringkasan kehadiran menggunakan rekod contoh.</p>\n          <Link href="/attendance">Buka demo →</Link>\n        </article>\n        <article>\n          <span className="eyebrow">03 · DEMO</span>\n          <h2>Cuti</h2>\n          <p>Permohonan dan status kelulusan menggunakan data contoh.</p>\n          <Link href="/leave">Buka demo →</Link>\n        </article>\n        <article>\n          <span className="eyebrow">04 · DEMO</span>\n          <h2>Gaji</h2>\n          <p>Ringkasan payroll menggunakan angka contoh.</p>\n          <Link href="/payroll">Buka demo →</Link>\n        </article>\n        {modules.map((name, i) => (
-          <article key={name}>
-            <span className="eyebrow">0{i + 5}</span>
-            <h2>{name}</h2>
-            <p>Dalam perancangan</p>
-          </article>
-        ))}
+        <article>
+          <span className="eyebrow">02 · DEMO</span>
+          <h2>Kehadiran</h2>
+          <p>Ringkasan kehadiran menggunakan rekod contoh.</p>
+          <Link href="/attendance">Buka demo →</Link>
+        </article>
+        <article>
+          <span className="eyebrow">03 · DEMO</span>
+          <h2>Cuti</h2>
+          <p>Permohonan dan status kelulusan menggunakan data contoh.</p>
+          <Link href="/leave">Buka demo →</Link>
+        </article>
+        <article>
+          <span className="eyebrow">04 · DEMO</span>
+          <h2>Gaji</h2>
+          <p>Ringkasan payroll menggunakan angka contoh.</p>
+          <Link href="/payroll">Buka demo →</Link>
+        </article>
+        <article>
+          <span className="eyebrow">05 · DEMO</span>
+          <h2>Dokumen HR</h2>
+          <p>Senarai metadata dokumen contoh.</p>
+          <Link href="/documents">Buka demo →</Link>
+        </article>
+        <article>
+          <span className="eyebrow">06 · DEMO</span>
+          <h2>Laporan</h2>
+          <p>Ringkasan pekerja, cuti dan gaji contoh.</p>
+          <Link href="/reports">Buka demo →</Link>
+        </article>
       </div>
     </>
   );
