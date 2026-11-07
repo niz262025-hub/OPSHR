@@ -1,35 +1,45 @@
 import Link from "next/link";
 
-const modules = [
-  { number: "01", title: "Pekerja", description: "Direktori dan profil pekerja demo.", href: "/employees" },
-  { number: "02", title: "Kehadiran", description: "Ringkasan kehadiran demo.", href: "/attendance" },
-  { number: "03", title: "Cuti", description: "Permohonan cuti demo.", href: "/leave" },
-  { number: "04", title: "Gaji", description: "Pengiraan gaji demo.", href: "/payroll" },
-  { number: "05", title: "Dokumen", description: "Metadata dokumen HR demo.", href: "/documents" },
-  { number: "06", title: "Laporan", description: "Ringkasan HR demo.", href: "/reports" },
-  { number: "08", title: "Jana Surat HR", description: "Empat template surat HR dengan pratonton draf.", href: "/letters" },\n  { number: "07", title: "Portal Pekerja", description: "Pratonton ESS menggunakan identiti sintetik.", href: "/staff" },
+const shortcuts = [
+  { title: "Pekerja", description: "Profil, jabatan dan jawatan", href: "/employees", icon: "👥" },
+  { title: "Kehadiran", description: "Rekod dan ringkasan kehadiran", href: "/attendance", icon: "🕒" },
+  { title: "Cuti", description: "Permohonan dan kelulusan", href: "/leave", icon: "📅" },
+  { title: "Payroll", description: "Gaji, elaun dan payslip", href: "/payroll", icon: "💳" },
+  { title: "Dokumen HR", description: "Dokumen dan rekod pekerja", href: "/documents", icon: "📁" },
+  { title: "Laporan", description: "Laporan operasi HR", href: "/reports", icon: "📋" },
+  { title: "Portal Pekerja", description: "Employee self-service", href: "/staff", icon: "🪪" },
+  { title: "Surat HR", description: "Jana surat dan templat", href: "/letters", icon: "✉️" },
 ];
 
 export default function Home() {
   return (
-    <>
-      <div className="eyebrow">SUMBER MANUSIA</div>
-      <section className="hero">
-        <h1>Urus pasukan anda,<br />dalam satu tempat.</h1>
-        <p>Ruang kerja HR dalam ekosistem MYOPS. Semua modul masih demo dan belum menyimpan data sebenar.</p>
-        <Link className="button" href="/employees">Semak demo pekerja →</Link>
-      </section>
-      <h2>Modul OpsHR</h2>
-      <div className="grid">
-        {modules.map((module) => (
-          <article key={module.number}>
-            <span className="eyebrow">{module.number} · DEMO</span>
-            <h2>{module.title}</h2>
-            <p>{module.description}</p>
-            <Link href={module.href}>Buka demo →</Link>
-          </article>
-        ))}
+    <div className="opshr-dashboard">
+      <div className="opshr-dashboard-heading">
+        <div>
+          <p className="opshr-dashboard-kicker">MYOPS / HUMAN RESOURCES</p>
+          <h1>Dashboard</h1>
+          <p>Ringkasan dan akses pantas pengurusan HR.</p>
+        </div>
+        <span className="opshr-preview-tag">Preview · Data demo</span>
       </div>
-    </>
+      <div className="opshr-dashboard-summary" aria-label="Status modul">
+        <div><span>Employee Management</span><strong>Demo</strong></div>
+        <div><span>Attendance & Leave</span><strong>Demo</strong></div>
+        <div><span>Payroll</span><strong>Demo</strong></div>
+      </div>
+      <section aria-labelledby="quick-access-title">
+        <div className="opshr-section-heading"><h2 id="quick-access-title">Quick Access</h2></div>
+        <div className="opshr-shortcut-grid">
+          {shortcuts.map((item) => (
+            <Link key={item.href} className="opshr-shortcut" href={item.href}>
+              <span className="opshr-shortcut-icon" aria-hidden="true">{item.icon}</span>
+              <strong>{item.title}</strong>
+              <small>{item.description}</small>
+              <span className="opshr-shortcut-arrow" aria-hidden="true">→</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
