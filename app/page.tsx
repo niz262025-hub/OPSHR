@@ -20,12 +20,12 @@ export default function Home() {
           <h1>Dashboard</h1>
           <p>Ringkasan dan akses pantas pengurusan HR.</p>
         </div>
-        <span className="opshr-preview-tag">Coming Soon · Data contoh</span>
+        <span className="opshr-preview-tag">Live UAT</span>
       </div>
       <div className="opshr-dashboard-summary" aria-label="Status modul">
-        <div><span>Employee Management</span><strong>Demo</strong></div>
-        <div><span>Attendance & Leave</span><strong>Demo</strong></div>
-        <div><span>Payroll</span><strong>Demo</strong></div>
+        <div><span>Employee Management</span><strong>UAT tersedia</strong></div>
+        <div><span>Attendance & Leave</span><strong>Dalam pembangunan</strong></div>
+        <div><span>Payroll</span><strong>Dalam pembangunan</strong></div>
       </div>
       <section aria-labelledby="quick-access-title">
         <div className="opshr-section-heading"><h2 id="quick-access-title">Quick Access</h2></div>
@@ -43,3 +43,4 @@ export default function Home() {
     </div>
   );
 }
+

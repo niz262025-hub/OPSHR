@@ -14,14 +14,15 @@ export type OpshrSqlConfig = Readonly<{
 export function readOpshrSqlConfig(
   env: Record<string, string | undefined> = process.env,
 ): OpshrSqlConfig {
-  if (env.VERCEL_ENV === "production" || env.NODE_ENV === "production" && env.OPSHR_STAGING_ONLY !== "true") {
+  const production = env.VERCEL_ENV === 'production';
+  if (production ? env.OPSHR_ENABLE_PRODUCTION_DATABASE !== 'true' : env.NODE_ENV === "production" && env.OPSHR_STAGING_ONLY !== "true") {
     throw new Error("OpsHR SQL connection is disabled outside explicitly marked staging");
   }
   const projectRef = env.OPSHR_MYOPS_CENTRAL_PROJECT_REF;
   if (!projectRef || !/^[a-z0-9]{20}$/.test(projectRef)) {
     throw new Error("Missing or invalid OPSHR_MYOPS_CENTRAL_PROJECT_REF");
   }
-  const raw = env.OPSHR_STAGING_DATABASE_URL;
+  const raw = production ? env.OPSHR_DATABASE_URL : env.OPSHR_STAGING_DATABASE_URL;
   if (!raw) throw new Error("Missing server-only OPSHR_STAGING_DATABASE_URL");
   let url: URL;
   try { url = new URL(raw); }
@@ -61,3 +62,4 @@ export function readOpshrSqlConfig(
     allowExitOnIdle: true,
   };
 }
+

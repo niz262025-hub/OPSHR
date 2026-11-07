@@ -15,6 +15,11 @@ test("rejects missing database URL",()=>{
 test("rejects production Vercel environment",()=>{
  assert.throws(()=>readOpshrSqlConfig({...stagingEnv,VERCEL_ENV:"production"}),/disabled/);
 });
+test('production requires its own explicit gate and server-only URL',()=>{
+ const production={OPSHR_MYOPS_CENTRAL_PROJECT_REF:projectRef,VERCEL_ENV:'production',OPSHR_ENABLE_PRODUCTION_DATABASE:'true',OPSHR_DATABASE_URL:url};
+ assert.equal(readOpshrSqlConfig(production).ssl.rejectUnauthorized,true);
+ assert.throws(()=>readOpshrSqlConfig({...production,OPSHR_DATABASE_URL:undefined,OPSHR_STAGING_DATABASE_URL:url}),/Missing/);
+});
 test("rejects unrelated database host",()=>{
  assert.throws(()=>readOpshrSqlConfig({...stagingEnv,OPSHR_STAGING_DATABASE_URL:url.replace("pooler.supabase.com","evil.example")}),/configured MYOPS Central project/);
 });
@@ -52,3 +57,4 @@ test("requires a project reference and accepts direct connections only with the 
  assert.equal(readOpshrSqlConfig({...stagingEnv,OPSHR_STAGING_DATABASE_URL:direct}).ssl.rejectUnauthorized,true);
  assert.throws(()=>readOpshrSqlConfig({...stagingEnv,OPSHR_STAGING_DATABASE_URL:direct.replace("opshr_app:","postgres:")}),/Restricted OpsHR database role/);
 });
+

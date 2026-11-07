@@ -41,8 +41,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </nav>
           <main>
             <aside role="note">
-              <strong>OpsHR — Coming Soon</strong> — Data contoh sahaja. Jangan masukkan data pekerja sebenar.
-              MYOPS central login dan sambungan database masih belum disahkan untuk kegunaan sebenar.
+              <strong>OpsHR — Live UAT</strong> — Pengurusan pekerja tersedia untuk ujian.
+              Kehadiran, cuti, payroll dan dokumen masih dalam pembangunan. Gunakan data rekaan semasa UAT.
             </aside>
             {children}
           </main>
@@ -52,3 +52,4 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   );
 }
+
