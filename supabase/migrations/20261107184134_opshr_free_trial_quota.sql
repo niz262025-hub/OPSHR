@@ -38,7 +38,7 @@ begin
   end if;
   if exists(select 1 from public.myops_lifetime_entitlements e where e.user_id=subject and e.status='active' and e.scope='all_apps')
     or exists(select 1 from opshr.opshr_identity_roles r where r.identity_user_id=subject::text and r.organization_id=new.organization_id and r.role='hr_admin' and r.active)
-    or exists(select 1 from public.myops_subscriptions s where s.status='active' and (s.current_period_end is null or s.current_period_end>now()) and (s.product_slug='opshr' or s.is_complete_bundle) and (s.personal_user_id=subject or (s.personal_user_id is null and s.organization_id::text=new.organization_id)))
+    or exists(select 1 from public.myops_subscriptions s where s.status='active' and (s.current_period_end is null or s.current_period_end>now()) and (s.product_slug in ('opshr','opsfinance','opsflow','opsp') or s.is_complete_bundle) and (s.personal_user_id=subject or (s.personal_user_id is null and s.organization_id::text=new.organization_id)))
   then return new; end if;
   select id into trial from public.myops_trials where user_id=subject for update;
   if (select count(*) from opshr.trial_employee_creations where trial_id=trial)>=30
@@ -57,29 +57,31 @@ returns table(identity_user_id text, organization_id text, role text)
 language sql stable security definer set search_path = ''
 as $fn$
   with live_session as (
-    select s.user_id from public.myops_app_sessions s
+    select s.user_id, s.app_id, c.product_slug
+    from public.myops_app_sessions s
     join public.myops_login_sessions l on l.id=s.login_session_id and l.user_id=s.user_id
-    join public.myops_app_clients c on c.app_id=s.app_id and c.product_slug='opshr' and c.enabled
-    where s.id=session_id and s.app_id=client_id and s.product_slug='opshr'
+    join public.myops_app_clients c on c.app_id=s.app_id and c.enabled
+    where s.id=session_id and s.app_id=client_id and c.product_slug in ('opshr','opsfinance','opsflow','opsp')
+      and s.product_slug = c.product_slug
       and s.revoked_at is null and l.revoked_at is null
       and s.last_activity_at>now()-interval '15 minutes' and s.last_activity_at<=now()
       and l.last_activity_at>now()-interval '15 minutes' and l.last_activity_at<=now()
       and s.created_at>now()-interval '12 hours' and s.created_at<=now()
       and l.created_at>now()-interval '12 hours' and l.created_at<=now()
-      and exists(select 1 from public.myops_products p where p.slug='opshr' and p.launch_status='live')
+      and exists(select 1 from public.myops_products p where p.slug=c.product_slug and p.launch_status='live')
   ), scopes as (
-    select s.user_id, r.organization_id, r.role, false as personal
+    select s.user_id, r.organization_id, r.role, false as personal, s.product_slug
     from live_session s
     join opshr.opshr_identity_roles r on r.identity_user_id=s.user_id::text and r.active
     join public.myops_memberships m on m.user_id=s.user_id and m.organization_id::text=r.organization_id and m.status='active'
-    join public.myops_app_grants g on g.user_id=s.user_id and g.organization_id=m.organization_id and g.product_slug='opshr'
+    join public.myops_app_grants g on g.user_id=s.user_id and g.organization_id=m.organization_id and g.product_slug=s.product_slug
     where r.role in ('hr_admin','hr_manager')
     union all
-    select s.user_id, 'personal:'||s.user_id::text, 'hr_admin', true
+    select s.user_id, 'personal:'||s.user_id::text, 'hr_admin', true, s.product_slug
     from live_session s join public.myops_profiles p on p.user_id=s.user_id and p.account_type in ('personal','business')
     where not exists(select 1 from opshr.opshr_identity_roles r where r.identity_user_id=s.user_id::text and r.active and r.organization_id not like 'personal:%')
     union all
-    select s.user_id, t.organization_id::text, 'hr_admin', false
+    select s.user_id, t.organization_id::text, 'hr_admin', false, s.product_slug
     from live_session s join public.myops_trials t on t.user_id=s.user_id
     where t.organization_id is not null and opshr.active_trial(s.user_id,t.organization_id::text)
   )
@@ -87,7 +89,7 @@ as $fn$
   where exists(
     select 1 from public.myops_subscriptions sub where sub.status='active'
       and (sub.current_period_end is null or sub.current_period_end>now())
-      and (sub.product_slug='opshr' or sub.is_complete_bundle)
+      and (sub.product_slug=s.product_slug or sub.is_complete_bundle)
       and (sub.personal_user_id=s.user_id or (not s.personal and sub.personal_user_id is null and sub.organization_id::text=s.organization_id))
   ) or exists(
     select 1 from public.myops_lifetime_entitlements e where e.user_id=s.user_id and e.status='active' and e.scope='all_apps'
