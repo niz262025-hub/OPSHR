@@ -15,7 +15,12 @@ export function readOpshrSqlConfig(
   env: Record<string, string | undefined> = process.env,
 ): OpshrSqlConfig {
   const production = env.VERCEL_ENV === 'production';
-  if (production ? env.OPSHR_ENABLE_PRODUCTION_DATABASE !== 'true' : env.NODE_ENV === "production" && env.OPSHR_STAGING_ONLY !== "true") {
+  const stagingEnabled = env.OPSHR_STAGING_ONLY === 'true';
+  if (production) {
+    if (env.OPSHR_ENABLE_PRODUCTION_DATABASE !== 'true') {
+      throw new Error("OpsHR SQL connection is disabled outside explicitly marked staging");
+    }
+  } else if (!stagingEnabled) {
     throw new Error("OpsHR SQL connection is disabled outside explicitly marked staging");
   }
   const projectRef = env.OPSHR_MYOPS_CENTRAL_PROJECT_REF;
