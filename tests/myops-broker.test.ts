@@ -36,7 +36,9 @@ test('redeem and entitlement enforce product, current grant and no passive activ
   for (const status of [401,403,429,500]) await assert.rejects(createBroker(config, async () => new Response('', { status })).validate(sid, true));
   await assert.rejects(createBroker(config, async () => Response.json({ entitled: true, session_active: false })).validate(sid, false));
 });
-test('configuration is default off and rejects alternate broker origin', () => {
+test('configuration is default off and rejects alternate broker origin or non-canonical app id', () => {
   assert.throws(() => brokerConfig({}));
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_ORIGIN: 'https://evil.example' }));
+  assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr-staging', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'x'.repeat(48) }));
+  assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'short' }));
 });
