@@ -8,6 +8,7 @@ const modules = [
   { number: "05", title: "Dokumen HR", description: "Senarai metadata dokumen contoh.", href: "/documents" },
   { number: "06", title: "Laporan", description: "Ringkasan pekerja, cuti dan gaji contoh.", href: "/reports" },
   { number: "07", title: "Portal Pekerja", description: "Pratonton ESS menggunakan identiti sintetik.", href: "/staff" },
+  { number: "08", title: "Jana Surat HR", description: "Empat template surat HR dengan pratonton draf.", href: "/letters" },
 ];
 
 export default function Home() {
