@@ -1,58 +1,34 @@
 import Link from "next/link";
 
+const modules = [
+  { number: "01", title: "Pekerja", description: "Direktori, jabatan dan status pekerjaan.", href: "/employees" },
+  { number: "02", title: "Kehadiran", description: "Ringkasan kehadiran menggunakan rekod contoh.", href: "/attendance" },
+  { number: "03", title: "Cuti", description: "Permohonan dan status kelulusan menggunakan data contoh.", href: "/leave" },
+  { number: "04", title: "Gaji", description: "Ringkasan payroll menggunakan angka contoh.", href: "/payroll" },
+  { number: "05", title: "Dokumen HR", description: "Senarai metadata dokumen contoh.", href: "/documents" },
+  { number: "06", title: "Laporan", description: "Ringkasan pekerja, cuti dan gaji contoh.", href: "/reports" },
+  { number: "07", title: "Portal Pekerja", description: "Pratonton ESS menggunakan identiti sintetik.", href: "/staff" },
+];
+
 export default function Home() {
   return (
     <>
       <div className="eyebrow">SUMBER MANUSIA</div>
       <section className="hero">
-        <h1>
-          Urus pasukan anda,
-          <br />
-          dalam satu tempat.
-        </h1>
-        <p>Ruang kerja HR dalam ekosistem MYOPS.</p>
-        <Link className="button" href="/employees">
-          Semak demo pekerja →
-        </Link>
+        <h1>Urus pasukan anda,<br />dalam satu tempat.</h1>
+        <p>Ruang kerja HR dalam ekosistem MYOPS. Semua modul masih demo dan belum menyimpan data sebenar.</p>
+        <Link className="button" href="/employees">Semak demo pekerja →</Link>
       </section>
       <h2>Modul OpsHR</h2>
       <div className="grid">
-        <article>
-          <span className="eyebrow">01 · DEMO</span>
-          <h2>Pekerja</h2>
-          <p>Direktori, jabatan dan status pekerjaan.</p>
-          <Link href="/employees">Buka demo →</Link>
-        </article>
-        <article>
-          <span className="eyebrow">02 · DEMO</span>
-          <h2>Kehadiran</h2>
-          <p>Ringkasan kehadiran menggunakan rekod contoh.</p>
-          <Link href="/attendance">Buka demo →</Link>
-        </article>
-        <article>
-          <span className="eyebrow">03 · DEMO</span>
-          <h2>Cuti</h2>
-          <p>Permohonan dan status kelulusan menggunakan data contoh.</p>
-          <Link href="/leave">Buka demo →</Link>
-        </article>
-        <article>
-          <span className="eyebrow">04 · DEMO</span>
-          <h2>Gaji</h2>
-          <p>Ringkasan payroll menggunakan angka contoh.</p>
-          <Link href="/payroll">Buka demo →</Link>
-        </article>
-        <article>
-          <span className="eyebrow">05 · DEMO</span>
-          <h2>Dokumen HR</h2>
-          <p>Senarai metadata dokumen contoh.</p>
-          <Link href="/documents">Buka demo →</Link>
-        </article>
-        <article>
-          <span className="eyebrow">06 · DEMO</span>
-          <h2>Laporan</h2>
-          <p>Ringkasan pekerja, cuti dan gaji contoh.</p>
-          <Link href="/reports">Buka demo →</Link>
-        </article>
+        {modules.map((module) => (
+          <article key={module.number}>
+            <span className="eyebrow">{module.number} · DEMO</span>
+            <h2>{module.title}</h2>
+            <p>{module.description}</p>
+            <Link href={module.href}>Buka demo →</Link>
+          </article>
+        ))}
       </div>
     </>
   );
