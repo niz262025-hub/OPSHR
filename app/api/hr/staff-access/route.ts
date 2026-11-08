@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const input = payload as Record<string, unknown>;
   if (Object.keys(input).some((key) => key !== "recordId" && key !== "action") ||
       typeof input.recordId !== "string" ||
-      !["approve", "suspend", "reinstate"].includes(String(input.action))) {
+      !["approve", "reject", "suspend", "reinstate"].includes(String(input.action))) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
   const result = await processHrApproval(repository, {

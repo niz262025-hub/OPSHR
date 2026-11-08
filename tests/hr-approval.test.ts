@@ -37,6 +37,14 @@ test("invalid transitions are denied", () => {
   assert.equal(authorizeStaffAccessChange(actor,{...target,status:"approved"},"approve").allowed,false);
   assert.equal(authorizeStaffAccessChange(actor,target,"suspend").allowed,false);
 });
+test("HR may reject a pending account without approving it", () => {
+  const d = authorizeStaffAccessChange(actor, target, "reject");
+  assert.equal(d.allowed, true);
+  assert.equal(d.nextStatus, "pending");
+  assert.deepEqual(approvalPatch(d, actor, "2026-11-05T00:00:00Z"), {
+    access_status: "pending", approved_by: "hr-1", approved_at: "2026-11-05T00:00:00Z",
+  });
+});
 test("suspend and reinstate require matching states", () => {
   assert.equal(authorizeStaffAccessChange(actor,{...target,status:"approved"},"suspend").nextStatus,"suspended");
   assert.equal(authorizeStaffAccessChange(actor,{...target,status:"suspended"},"reinstate").nextStatus,"approved");

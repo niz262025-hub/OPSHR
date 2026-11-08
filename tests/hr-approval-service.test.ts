@@ -29,6 +29,14 @@ test("approval persists only a status patch with atomic audit request",async()=>
   access_status:"approved",approved_by:"hr-1",approved_at:"2026-11-05T00:00:00Z"});
  assert.equal((f.writes[0] as {eventType:string}).eventType,"staff_access.approved");
 });
+test("pending account rejection keeps the record pending and records a rejection event",async()=>{
+ const f=fixture();const result=await processHrApproval(f.repository,{recordId:id,action:"reject"},()=>"2026-11-05T00:00:00Z");
+ assert.deepEqual(result,{ok:true,status:"pending"});
+ assert.equal(f.writes.length,1);
+ assert.deepEqual((f.writes[0] as {patch:object}).patch,{
+  access_status:"pending",approved_by:"hr-1",approved_at:"2026-11-05T00:00:00Z"});
+ assert.equal((f.writes[0] as {eventType:string}).eventType,"staff_access.rejected");
+});
 test("cross tenant cannot write",async()=>{
  const f=fixture({tenant:"company-b"});assert.equal((await processHrApproval(f.repository,{recordId:id,action:"approve"})).ok,false);assert.equal(f.writes.length,0);
 });
