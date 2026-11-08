@@ -23,7 +23,7 @@ export default function LetterPreviewPage() {
   const update = <K extends keyof LetterDraft>(key: K, value: LetterDraft[K]) => setDraft((prev) => ({ ...prev, [key]: value }));
   const validation = validateLetterDraft(draft);
   const error = validation
-    ? t(validation === "Jenis atau bahasa surat tidak sah" ? "letterTypeLanguageInvalid" : validation === "Lengkapkan semua maklumat surat" ? "letterComplete" : "invalidDate")
+    ? t(validation === "Jenis atau bahasa surat tidak sah" ? "letterTypeLanguageInvalid" : validation === "Lengkapkan semua maklumat surat" ? "letterComplete" : validation === "Status surat tidak sah" ? "letterComplete" : "invalidDate")
     : null;
   return (
     <>
@@ -38,6 +38,11 @@ export default function LetterPreviewPage() {
           <label>{t("companyName")}<input value={draft.companyName} onChange={(e) => update("companyName", e.target.value)} /></label>
           <label>{t("employeeName")}<input value={draft.employeeName} onChange={(e) => update("employeeName", e.target.value)} /></label>
           <label>{t("position")}<input value={draft.position} onChange={(e) => update("position", e.target.value)} /></label>
+          <label>Recipient<input value={draft.recipient} onChange={(e) => update("recipient", e.target.value)} /></label>
+          <label>Recipient role<input value={draft.recipientRole} onChange={(e) => update("recipientRole", e.target.value)} /></label>
+          <label>Effective from<input type="date" value={draft.effectiveFrom} onChange={(e) => update("effectiveFrom", e.target.value)} /></label>
+          <label>Effective to<input type="date" value={draft.effectiveTo} onChange={(e) => update("effectiveTo", e.target.value)} /></label>
+          <label>Status<select value={draft.status} onChange={(e) => update("status", e.target.value as LetterDraft["status"])}><option value="draft">Draft</option><option value="final">Final</option></select></label>
           <label>{t("letterDetails")}<textarea value={draft.details} onChange={(e) => update("details", e.target.value)} /></label>
         </div>
       </section>

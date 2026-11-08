@@ -22,6 +22,11 @@ export default function DocumentsPage() {
           </tr>)}</tbody>
         </table></div>
       </section>
+      <section className="directory" aria-label="HR letter generator">
+        <h2>HR Letter Generator</h2>
+        <p className="message">Demo preview only. Draft templates are available for HR review and approval before issuance.</p>
+        <Link href="/letters">Generate HR letter →</Link>
+      </section>
       <p className="message">{t("noRealFiles")}</p>
     </>
   );
