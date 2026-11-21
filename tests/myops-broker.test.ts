@@ -52,3 +52,10 @@ test('configuration is default off and rejects alternate broker origin or non-ca
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr-staging', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'x'.repeat(48) }));
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'short' }));
 });
+test('preview requires the staging broker and refuses production', () => {
+  const staging = 'https://southerndotcom-website-git-feat-myop-ca0019-mohd-syaiful-nizam1.vercel.app';
+  assert.throws(() => brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'preview' }));
+  assert.throws(() => brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'preview', OPSHR_MYOPS_ORIGIN: '' }));
+  assert.throws(() => brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'production', OPSHR_MYOPS_ORIGIN: staging }));
+  assert.equal(brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'preview', OPSHR_MYOPS_ORIGIN: staging }).origin, staging);
+});
