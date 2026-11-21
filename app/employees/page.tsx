@@ -9,7 +9,7 @@ import {
 } from "../../lib/myops-broker";
 import EmployeeDirectory from "./employee-directory";
 
-const MYOPS_HOME = "https://www.myops.com.my/";
+const MYOPS_HOME = "/api/myops-return";
 
 export default async function EmployeesPage() {
   const sessionCookie = (await cookies()).get(SESSION_COOKIE)?.value;

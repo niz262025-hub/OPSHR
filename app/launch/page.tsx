@@ -16,5 +16,5 @@ export default function Launch() {
       location.replace('/employees');
     }).catch(() => setMessage('launchFailed'));
   }, [t]);
-  return <section><h1>OpsHR</h1><p role="status">{t(message)}</p><a href="https://www.myops.com.my/">{t('backToMyops')}</a></section>;
+  return <section><h1>OpsHR</h1><p role="status">{t(message)}</p><a href="/api/myops-return">{t('backToMyops')}</a></section>;
 }

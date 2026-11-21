@@ -10,7 +10,7 @@ export default function SessionControls() {
       pending = true;
       try {
         const response = await fetch('/api/session', { method: activity ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal });
-        if (response.status === 401) location.replace('https://www.myops.com.my/');
+        if (response.status === 401) location.replace('/api/myops-return');
       } catch { /* A temporary network failure must not renew the session. */ }
       finally { pending = false; }
     }
