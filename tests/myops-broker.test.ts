@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createHash, generateKeyPairSync, verify } from 'node:crypto';
 import { brokerConfig, canonicalJson, createBroker, issueCookie, readCookie, signedHeaders } from '../lib/myops-broker.ts';
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
@@ -51,4 +52,12 @@ test('configuration is default off and rejects alternate broker origin or non-ca
   assert.doesNotThrow(() => brokerConfig(validBrokerEnv));
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr-staging', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'x'.repeat(48) }));
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'short' }));
+});
+test('OpsHR exposes MYOPS-only navigation and no local logout endpoint', () => {
+  const shell = readFileSync(new URL('../app/app-shell.tsx', import.meta.url), 'utf8');
+  const controls = readFileSync(new URL('../app/employees/session-controls.tsx', import.meta.url), 'utf8');
+  const sessionRoute = readFileSync(new URL('../app/api/session/route.ts', import.meta.url), 'utf8');
+  assert.match(shell, /Back to MYOPS|backToMyops/);
+  assert.doesNotMatch(controls, /method:\s*['"]DELETE['"]|async function logout|<button/);
+  assert.doesNotMatch(sessionRoute, /export async function DELETE/);
 });
