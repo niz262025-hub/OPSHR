@@ -500,7 +500,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .opshr-hero-graphic { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
 .opshr-graphic-orb { width: min(190px, 100%); aspect-ratio: 1; display: grid; place-items: center; border-radius: 36%; font-size: 4.4rem; font-weight: 900; color: #fff; background: linear-gradient(145deg, #ff8d2b, #ec167a 60%, #8d4dff); box-shadow: 0 20px 35px rgba(236,22,122,.22); transform: rotate(-8deg); }
 .opshr-graphic-label { color: #4a5d85; font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-align: center; }
-.opshr-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 20px 0; }
+.opshr-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 20px 0; }
 .opshr-section-heading h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); margin: 8px 0 0; letter-spacing: -.05em; }
 .opshr-preview-tag { font-size: .78rem; color: #4a5d85; font-weight: 700; }
 .opshr-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
