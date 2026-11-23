@@ -18,12 +18,16 @@ export function canonicalJson(value: unknown): string {
 export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   if (env.OPSHR_ENABLE_EMPLOYEES !== 'true') throw new AccessError(503);
   const productionOrigin = 'https://www.myops.com.my';
-  const stagingOrigin = 'https://southerndotcom-website-git-feat-myop-ca0019-mohd-syaiful-nizam1.vercel.app';
+  const stagingOrigins = [
+    'https://southerndotcom-website-git-feat-myop-ca0019-mohd-syaiful-nizam1.vercel.app',
+    'https://southerndotcom-website-git-fix-centr-db9115-mohd-syaiful-nizam1.vercel.app',
+  ];
   const preview = env.VERCEL_ENV === 'preview';
   const rawOrigin = env.OPSHR_MYOPS_ORIGIN || (preview ? '' : productionOrigin);
   let origin: URL;
   try { origin = new URL(rawOrigin); } catch { throw new AccessError(503); }
-  if (origin.origin !== (preview ? stagingOrigin : productionOrigin) || origin.href !== origin.origin + '/') throw new AccessError(503);
+  const trustedOrigins = preview ? stagingOrigins : [productionOrigin];
+  if (!trustedOrigins.includes(origin.origin) || origin.href !== origin.origin + '/') throw new AccessError(503);
   if ((env.OPSHR_MYOPS_APP_ID || '') !== 'opshr' || !env.OPSHR_MYOPS_PRIVATE_KEY || (env.OPSHR_COOKIE_SECRET || '').length < 32) throw new AccessError(503);
   let key: ReturnType<typeof createPrivateKey>;
   try { key = createPrivateKey(env.OPSHR_MYOPS_PRIVATE_KEY!); } catch { throw new AccessError(503); }
