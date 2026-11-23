@@ -46,8 +46,18 @@ export function createBroker(config: ReturnType<typeof brokerConfig>, transport:
   async function post(path: string, body: object): Promise<Record<string, unknown>> {
     let response: Response;
     try { response = await transport(config.origin + path, { method: 'POST', headers: signedHeaders(path, body, config), body: canonicalJson(body), cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(5000) }); }
-    catch { throw new AccessError(503); }
-    if (!response.ok) throw new AccessError([401,403].includes(response.status) ? 401 : 503);
+    catch (error) {
+      if (process.env.VERCEL_ENV === 'preview') {
+        const reason = error instanceof Error && ['TimeoutError', 'AbortError', 'TypeError'].includes(error.name)
+          ? error.name : 'network';
+        console.warn('opshr_myops_transport_failed', path, reason);
+      }
+      throw new AccessError(503);
+    }
+    if (!response.ok) {
+      if (process.env.VERCEL_ENV === 'preview') console.warn('opshr_myops_transport_failed', path, response.status);
+      throw new AccessError([401,403].includes(response.status) ? 401 : 503);
+    }
     try { return await response.json(); } catch { throw new AccessError(503); }
   }
   return {
