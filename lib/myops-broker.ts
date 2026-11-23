@@ -55,7 +55,12 @@ export function createBroker(config: ReturnType<typeof brokerConfig>, transport:
       throw new AccessError(503);
     }
     if (!response.ok) {
-      if (process.env.VERCEL_ENV === 'preview') console.warn('opshr_myops_transport_failed', path, response.status);
+      if (process.env.VERCEL_ENV === 'preview') {
+        const contentType = response.headers.get('content-type') ?? '';
+        const responseKind = contentType.startsWith('application/json')
+          ? 'json' : contentType.startsWith('text/html') ? 'html' : 'other';
+        console.warn('opshr_myops_transport_failed', path, response.status, responseKind);
+      }
       throw new AccessError([401,403].includes(response.status) ? 401 : 503);
     }
     try { return await response.json(); } catch { throw new AccessError(503); }
