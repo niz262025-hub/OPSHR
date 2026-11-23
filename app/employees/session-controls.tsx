@@ -1,10 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useLocale } from '../locale-provider';
+import { useEffect } from 'react';
 export default function SessionControls() {
-  const { t } = useLocale();
-  const [error, setError] = useState(false);
-  const [busy, setBusy] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     let lastActivitySent = Date.now();
@@ -14,7 +10,7 @@ export default function SessionControls() {
       pending = true;
       try {
         const response = await fetch('/api/session', { method: activity ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal });
-        if (response.status === 401) location.replace('https://www.myops.com.my/');
+        if (response.status === 401) location.replace('/api/myops-return');
       } catch { /* A temporary network failure must not renew the session. */ }
       finally { pending = false; }
     }
@@ -27,14 +23,5 @@ export default function SessionControls() {
     window.addEventListener('keydown', activity);
     return () => { clearInterval(timer); controller.abort(); window.removeEventListener('pointerdown', activity); window.removeEventListener('keydown', activity); };
   }, []);
-  async function logout() {
-    if (busy) return;
-    setBusy(true); setError(false);
-    try {
-      const response = await fetch('/api/session', { method: 'DELETE', cache: 'no-store' });
-      if (!response.ok) throw new Error(t('logoutFailed'));
-      location.replace('https://www.myops.com.my/');
-    } catch { setError(true); setBusy(false); }
-  }
-  return <div><button className="secondary" onClick={logout} disabled={busy}>{busy ? t('loggingOut') : t('logout')}</button>{error ? <p role="alert">{t('logoutFailed')}</p> : null}</div>;
+  return null;
 }
