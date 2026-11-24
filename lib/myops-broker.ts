@@ -25,9 +25,10 @@ export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   let key: ReturnType<typeof createPrivateKey>;
   try { key = createPrivateKey(env.OPSHR_MYOPS_PRIVATE_KEY!); } catch { throw new AccessError(503); }
   if (key.asymmetricKeyType !== 'ed25519') throw new AccessError(503);
-  return { origin: origin.origin, appId: env.OPSHR_MYOPS_APP_ID!, privateKey: env.OPSHR_MYOPS_PRIVATE_KEY!, secret: env.OPSHR_COOKIE_SECRET! };
+  return { origin: origin.origin, appId: env.OPSHR_MYOPS_APP_ID!, privateKey: env.OPSHR_MYOPS_PRIVATE_KEY!, secret: env.OPSHR_COOKIE_SECRET!, organizationBound: env.OPSHR_ORGANIZATION_BINDING === 'true' };
 }
-export function signedHeaders(path: string, body: object, config: ReturnType<typeof brokerConfig>, timestamp = String(Date.now()), nonce = randomBytes(24).toString('base64url')) {
+type BrokerConfig = Omit<ReturnType<typeof brokerConfig>, 'organizationBound'> & { organizationBound?: boolean };
+export function signedHeaders(path: string, body: object, config: BrokerConfig, timestamp = String(Date.now()), nonce = randomBytes(24).toString('base64url')) {
   let key: ReturnType<typeof createPrivateKey>;
   try { key = createPrivateKey(config.privateKey); } catch { throw new AccessError(503); }
   if (key.asymmetricKeyType !== 'ed25519') throw new AccessError(503);
@@ -35,7 +36,7 @@ export function signedHeaders(path: string, body: object, config: ReturnType<typ
   const message = `POST\n${path}\n${config.appId}\ncurrent\n${timestamp}\n${nonce}\n${hash}`;
   return { 'Content-Type': 'application/json', 'x-myops-app-id': config.appId, 'x-myops-key-version': 'current', 'x-myops-timestamp': timestamp, 'x-myops-nonce': nonce, 'x-myops-signature': sign(null, Buffer.from(message), key).toString('base64url') };
 }
-export function createBroker(config: ReturnType<typeof brokerConfig>, transport: typeof fetch = fetch) {
+export function createBroker(config: BrokerConfig, transport: typeof fetch = fetch) {
   async function post(path: string, body: object): Promise<Record<string, unknown>> {
     let response: Response;
     try { response = await transport(config.origin + path, { method: 'POST', headers: signedHeaders(path, body, config), body: canonicalJson(body), cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(5000) }); }
@@ -48,20 +49,25 @@ export function createBroker(config: ReturnType<typeof brokerConfig>, transport:
       if (typeof ticket !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(ticket)) throw new AccessError(400);
       const result = await post('/api/app/redeem', { ticket });
       if (result.product !== 'opshr' || typeof result.session_id !== 'string' || !uuid.test(result.session_id) || typeof result.user_ref !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(result.user_ref)) throw new AccessError(401);
-      return result.session_id;
+      if (config.organizationBound) {
+        if (typeof result.organization_id !== 'string' || !uuid.test(result.organization_id)) throw new AccessError(401);
+        return { sessionId: result.session_id, organizationId: result.organization_id.toLowerCase() };
+      }
+      return { sessionId: result.session_id, organizationId: null };
     },
-    async validate(sessionId: string, activity: boolean) {
-      const result = await post('/api/app/entitlement', { session_id: sessionId, product: 'opshr', activity, sensitive: activity });
-      if (result.entitled !== true || result.session_active !== true) throw new AccessError(401);
+    async validate(sessionId: string, activity: boolean, organizationId?: string | null) {
+      if (config.organizationBound && (!organizationId || !uuid.test(organizationId))) throw new AccessError(401);
+      const result = await post('/api/app/entitlement', { session_id: sessionId, product: 'opshr', activity, sensitive: activity, ...(config.organizationBound ? { organization_id: organizationId } : {}) });
+      if (result.entitled !== true || result.session_active !== true || (config.organizationBound && result.organization_id !== organizationId)) throw new AccessError(401);
     },
   };
 }
-export function issueCookie(sessionId: string, secret: string, now = Date.now()) {
-  if (!uuid.test(sessionId) || secret.length < 32) throw new AccessError(503);
-  const payload = Buffer.from(JSON.stringify({ sid: sessionId, iat: now, exp: now + 12 * 3600000 })).toString('base64url');
+export function issueCookie(sessionId: string, secret: string, now = Date.now(), organizationId: string | null = null) {
+  if (!uuid.test(sessionId) || secret.length < 32 || (organizationId !== null && !uuid.test(organizationId))) throw new AccessError(503);
+  const payload = Buffer.from(JSON.stringify({ sid: sessionId, iat: now, exp: now + 12 * 3600000, ...(organizationId ? { org: organizationId.toLowerCase() } : {}) })).toString('base64url');
   return payload + '.' + createHmac('sha256', secret).update(payload).digest('base64url');
 }
-export function readCookie(token: string | undefined, secret: string, now = Date.now()): string | null {
+export function readCookieClaims(token: string | undefined, secret: string, now = Date.now()): { sessionId: string; organizationId: string | null } | null {
   if (!token || token.length > 1024 || secret.length < 32) return null;
   const [payload, signature, extra] = token.split('.');
   if (extra !== undefined || !/^[A-Za-z0-9_-]+$/.test(payload || '') || !/^[A-Za-z0-9_-]{43}$/.test(signature || '')) return null;
@@ -69,6 +75,9 @@ export function readCookie(token: string | undefined, secret: string, now = Date
   if (!timingSafeEqual(expected, Buffer.from(signature, 'base64url'))) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return uuid.test(data.sid) && Number.isSafeInteger(data.iat) && Number.isSafeInteger(data.exp) && data.iat <= now && data.exp > now && data.exp - data.iat === 12 * 3600000 ? data.sid : null;
+    return uuid.test(data.sid) && Number.isSafeInteger(data.iat) && Number.isSafeInteger(data.exp) && data.iat <= now && data.exp > now && data.exp - data.iat === 12 * 3600000 && (data.org === undefined || typeof data.org === 'string' && uuid.test(data.org)) ? { sessionId: data.sid, organizationId: data.org?.toLowerCase() ?? null } : null;
   } catch { return null; }
+}
+export function readCookie(token: string | undefined, secret: string, now = Date.now()): string | null {
+  return readCookieClaims(token, secret, now)?.sessionId ?? null;
 }

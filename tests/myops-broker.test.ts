@@ -36,7 +36,7 @@ test('redeem and entitlement enforce product, current grant and no passive activ
     return Response.json('ticket' in body ? { session_id: sid, product: 'opshr', user_ref: 'a'.repeat(43) } : { entitled: true, session_active: true });
   };
   const broker = createBroker(config, transport);
-  assert.equal(await broker.redeem('a'.repeat(43)), sid);
+  assert.deepEqual(await broker.redeem('a'.repeat(43)), { sessionId: sid, organizationId: null });
   await broker.validate(sid, false);
   assert.deepEqual(bodies[1], { activity: false, product: 'opshr', sensitive: false, session_id: sid });
   await assert.rejects(createBroker(config, async () => Response.json({ product: 'opsfinance', session_id: sid })).redeem('a'.repeat(43)));
@@ -51,4 +51,25 @@ test('configuration is default off and rejects alternate broker origin or non-ca
   assert.doesNotThrow(() => brokerConfig(validBrokerEnv));
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr-staging', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'x'.repeat(48) }));
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'short' }));
+});
+test('bound broker stores only central organization and rejects organization mismatch', async () => {
+  const org = '00000000-0000-4000-8000-000000000002';
+  const other = '00000000-0000-4000-8000-000000000003';
+  const bodies: Record<string, unknown>[] = [];
+  const transport: typeof fetch = async (_url, init) => {
+    const body = JSON.parse(init!.body as string); bodies.push(body);
+    return Response.json('ticket' in body
+      ? { session_id: sid, product: 'opshr', user_ref: 'a'.repeat(43), organization_id: org }
+      : { entitled: true, session_active: true, organization_id: org });
+  };
+  const broker = createBroker({ ...config, organizationBound: true }, transport);
+  const session = await broker.redeem('a'.repeat(43));
+  assert.deepEqual(session, { sessionId: sid, organizationId: org });
+  await broker.validate(sid, false, org);
+  assert.equal(bodies[1].organization_id, org);
+  await assert.rejects(broker.validate(sid, false, other));
+  await assert.rejects(broker.validate(sid, false, null));
+  const token = issueCookie(sid, config.secret, 1000, org);
+  assert.equal(readCookie(token, config.secret, 1001), sid);
+  await assert.rejects(createBroker({ ...config, organizationBound: true }, async () => Response.json({ session_id: sid, product: 'opshr', user_ref: 'a'.repeat(43) })).redeem('a'.repeat(43)));
 });
