@@ -32,16 +32,17 @@ export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   let key: ReturnType<typeof createPrivateKey>;
   try { key = createPrivateKey(env.OPSHR_MYOPS_PRIVATE_KEY!); } catch { throw new AccessError(503); }
   if (key.asymmetricKeyType !== 'ed25519') throw new AccessError(503);
-  return { origin: origin.origin, appId: env.OPSHR_MYOPS_APP_ID!, privateKey: env.OPSHR_MYOPS_PRIVATE_KEY!, secret: env.OPSHR_COOKIE_SECRET!, organizationBound: env.OPSHR_ORGANIZATION_BINDING === 'true' };
+  return { origin: origin.origin, appId: env.OPSHR_MYOPS_APP_ID!, privateKey: env.OPSHR_MYOPS_PRIVATE_KEY!, secret: env.OPSHR_COOKIE_SECRET!, keyVersion: preview && env.OPSHR_MYOPS_KEY_VERSION === 'next' ? 'next' as const : 'current' as const, organizationBound: env.OPSHR_ORGANIZATION_BINDING === 'true' };
 }
-type BrokerConfig = Omit<ReturnType<typeof brokerConfig>, 'organizationBound'> & { organizationBound?: boolean };
+type BrokerConfig = Omit<ReturnType<typeof brokerConfig>, 'organizationBound' | 'keyVersion'> & { organizationBound?: boolean, keyVersion?: 'current' | 'next' };
 export function signedHeaders(path: string, body: object, config: BrokerConfig, timestamp = String(Date.now()), nonce = randomBytes(24).toString('base64url')) {
   let key: ReturnType<typeof createPrivateKey>;
   try { key = createPrivateKey(config.privateKey); } catch { throw new AccessError(503); }
   if (key.asymmetricKeyType !== 'ed25519') throw new AccessError(503);
   const hash = createHash('sha256').update(canonicalJson(body)).digest('hex');
-  const message = `POST\n${path}\n${config.appId}\ncurrent\n${timestamp}\n${nonce}\n${hash}`;
-  return { 'Content-Type': 'application/json', 'x-myops-app-id': config.appId, 'x-myops-key-version': 'current', 'x-myops-timestamp': timestamp, 'x-myops-nonce': nonce, 'x-myops-signature': sign(null, Buffer.from(message), key).toString('base64url') };
+  const keyVersion = config.keyVersion ?? 'current';
+  const message = `POST\n${path}\n${config.appId}\n${keyVersion}\n${timestamp}\n${nonce}\n${hash}`;
+  return { 'Content-Type': 'application/json', 'x-myops-app-id': config.appId, 'x-myops-key-version': keyVersion, 'x-myops-timestamp': timestamp, 'x-myops-nonce': nonce, 'x-myops-signature': sign(null, Buffer.from(message), key).toString('base64url') };
 }
 export function createBroker(config: BrokerConfig, transport: typeof fetch = fetch) {
   async function post(path: string, body: object): Promise<Record<string, unknown>> {
@@ -72,7 +73,7 @@ export function createBroker(config: BrokerConfig, transport: typeof fetch = fet
           }
           const publicKey = createPublicKey(config.privateKey).export({ type: 'spki', format: 'der' });
           const fingerprint = createHash('sha256').update(publicKey).digest('hex');
-          console.warn('opshr_myops_signing_fingerprint', 'current', fingerprint);
+          console.warn('opshr_myops_signing_fingerprint', config.keyVersion ?? 'current', fingerprint);
         }
       }
       throw new AccessError([401,403].includes(response.status) ? 401 : 503);
