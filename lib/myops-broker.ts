@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, randomBytes, sign, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, createHmac, timingSafeEqual } from 'node:crypto';
 
 export class AccessError extends Error {
   status: number;
@@ -60,6 +60,11 @@ export function createBroker(config: ReturnType<typeof brokerConfig>, transport:
         const responseKind = contentType.startsWith('application/json')
           ? 'json' : contentType.startsWith('text/html') ? 'html' : 'other';
         console.warn('opshr_myops_transport_failed', path, response.status, responseKind);
+        if (path === '/api/app/redeem' && response.status === 401) {
+          const publicKey = createPublicKey(config.privateKey).export({ type: 'spki', format: 'der' });
+          const fingerprint = createHash('sha256').update(publicKey).digest('hex');
+          console.warn('opshr_myops_signing_fingerprint', 'current', fingerprint);
+        }
       }
       throw new AccessError([401,403].includes(response.status) ? 401 : 503);
     }
