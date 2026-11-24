@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, verify } from 'node:crypto';
-import { brokerConfig, canonicalJson, createBroker, issueCookie, readCookie, signedHeaders } from '../lib/myops-broker.ts';
+import { brokerConfig, canonicalJson, createBroker, issueCookie, readCookie, signedHeaders, previewUpstreamDiagnostic } from '../lib/myops-broker.ts';
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 const config = { origin: 'https://www.myops.com.my', appId: 'opshr', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(), secret: 'x'.repeat(48) };
 const sid = '50b4681a-0c62-4f94-8e53-57c086471faf';
@@ -79,4 +79,12 @@ test('preview requires the staging broker and refuses production', () => {
   assert.throws(() => brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'preview', OPSHR_MYOPS_ORIGIN: '' }));
   assert.throws(() => brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'production', OPSHR_MYOPS_ORIGIN: staging }));
   assert.equal(brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'preview', OPSHR_MYOPS_ORIGIN: staging }).origin, staging);
+});
+
+test('preview diagnostics reject untrusted request IDs and never return response secrets', () => {
+  const response = new Response('secret-ticket', {status:401,headers:{'x-vercel-id':'bad secret','set-cookie':'session=secret','content-type':'application/json'}});
+  const result = previewUpstreamDiagnostic('https://staging.example', '/api/app/redeem', response);
+  assert.equal(result.layer, 'unknown'); assert.equal(result.correlation, null);
+  assert.equal(result.handlerReached, 'unknown'); assert.equal(result.status, 401);
+  assert.doesNotMatch(JSON.stringify(result), /secret/);
 });

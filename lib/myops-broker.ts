@@ -44,6 +44,20 @@ export function signedHeaders(path: string, body: object, config: BrokerConfig, 
   const message = `POST\n${path}\n${config.appId}\n${keyVersion}\n${timestamp}\n${nonce}\n${hash}`;
   return { 'Content-Type': 'application/json', 'x-myops-app-id': config.appId, 'x-myops-key-version': keyVersion, 'x-myops-timestamp': timestamp, 'x-myops-nonce': nonce, 'x-myops-signature': sign(null, Buffer.from(message), key).toString('base64url') };
 }
+export function previewUpstreamDiagnostic(origin: string, path: string, response: Response) {
+  const allowedPaths = ['/api/app/redeem', '/api/app/entitlement'];
+  const vercelId = response.headers.get('x-vercel-id') || '';
+  const error = response.headers.get('x-vercel-error') || '';
+  return {
+    hostname: new URL(origin).hostname,
+    path: allowedPaths.includes(path) ? path : '[redacted]',
+    status: response.status,
+    content: (response.headers.get('content-type') || '').startsWith('application/json') ? 'json' : (response.headers.get('content-type') || '').startsWith('text/html') ? 'html' : 'other',
+    correlation: /^[a-z0-9:.-]{1,160}$/i.test(vercelId) ? vercelId : null,
+    layer: error === 'DEPLOYMENT_PROTECTION' ? 'vercel_protection' : 'unknown',
+    middlewareReached: 'unknown', handlerReached: 'unknown',
+  };
+}
 export function createBroker(config: BrokerConfig, transport: typeof fetch = fetch) {
   async function post(path: string, body: object): Promise<Record<string, unknown>> {
     let response: Response;
@@ -58,6 +72,7 @@ export function createBroker(config: BrokerConfig, transport: typeof fetch = fet
     }
     if (!response.ok) {
       if (process.env.VERCEL_ENV === 'preview') {
+        console.warn('opshr_preview_upstream', previewUpstreamDiagnostic(config.origin, path, response));
         const contentType = response.headers.get('content-type') ?? '';
         const responseKind = contentType.startsWith('application/json')
           ? 'json' : contentType.startsWith('text/html') ? 'html' : 'other';
