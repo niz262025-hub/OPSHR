@@ -73,3 +73,10 @@ test('bound broker stores only central organization and rejects organization mis
   assert.equal(readCookie(token, config.secret, 1001), sid);
   await assert.rejects(createBroker({ ...config, organizationBound: true }, async () => Response.json({ session_id: sid, product: 'opshr', user_ref: 'a'.repeat(43) })).redeem('a'.repeat(43)));
 });
+test('preview requires the staging broker and refuses production', () => {
+  const staging = 'https://southerndotcom-website-git-feat-myop-ca0019-mohd-syaiful-nizam1.vercel.app';
+  assert.throws(() => brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'preview' }));
+  assert.throws(() => brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'preview', OPSHR_MYOPS_ORIGIN: '' }));
+  assert.throws(() => brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'production', OPSHR_MYOPS_ORIGIN: staging }));
+  assert.equal(brokerConfig({ ...validBrokerEnv, VERCEL_ENV: 'preview', OPSHR_MYOPS_ORIGIN: staging }).origin, staging);
+});

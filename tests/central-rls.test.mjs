@@ -95,6 +95,22 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
     await setContext(org);
     await assert.rejects(db.query('update opshr.opshr_employees set organization_id=$1', [otherOrg]));
     await db.exec('reset role');
+    // Verify a real manager identity, not just an admin, stays in its own organization.
+    await db.query("update opshr.opshr_identity_roles set role='hr_manager' where identity_user_id=$1 and organization_id=$2", [user,org]);
+    await db.exec('set role opshr_app');
+    assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,1);
+    await setContext(otherOrg);
+    assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,0);
+    await assert.rejects(insert(otherOrg));
+    await setContext(org);
+    await db.exec('reset role');
+    // A previously authorized manager loses both read and write access when disabled.
+    await db.query('update opshr.opshr_identity_roles set active=false where identity_user_id=$1 and organization_id=$2', [user,org]);
+    await db.exec('set role opshr_app');
+    assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,0);
+    await assert.rejects(insert(org));
+    await db.exec('reset role');
+    await db.query('update opshr.opshr_identity_roles set active=true where identity_user_id=$1 and organization_id=$2', [user,org]);
     await db.query("update public.myops_subscriptions set current_period_end=now()-interval '1 minute'");
     await db.query("insert into public.myops_subscriptions values(null,$1,'opshr',false,'active',now()+interval '1 month')", [otherOrg]);
     await db.exec('set role opshr_app');
