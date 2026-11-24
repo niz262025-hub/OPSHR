@@ -40,7 +40,7 @@ as $fn$
     select 1 from public.myops_subscriptions sub where sub.status='active'
       and (sub.current_period_end is null or sub.current_period_end>now())
       and (sub.product_slug=s.product_slug or sub.is_complete_bundle)
-      and ((s.personal and sub.personal_user_id=s.user_id) or (not s.personal and sub.personal_user_id is null and sub.organization_id::text=s.organization_id))
+      and ((sub.personal_user_id=s.user_id and (s.personal or exists(select 1 from public.myops_app_sessions legacy where legacy.id=session_id and legacy.organization_id is null))) or (not s.personal and sub.personal_user_id is null and sub.organization_id::text=s.organization_id))
   ) or exists(
     select 1 from public.myops_lifetime_entitlements e where e.user_id=s.user_id and e.status='active' and e.scope='all_apps'
   ) or (s.personal and exists(

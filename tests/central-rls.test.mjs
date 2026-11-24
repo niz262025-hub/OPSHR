@@ -65,6 +65,18 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
     await db.query("insert into public.myops_app_grants values ($1,$2,'opshr')", [user,otherOrg]);
     await db.query("insert into opshr.opshr_identity_roles(identity_user_id,organization_id,role,active) values ($1,$2,'hr_admin',true)", [user,otherOrg]);
     await db.query('update public.myops_app_sessions set organization_id=$1 where id=$2', [org,sid]);
+    await db.query("insert into public.myops_subscriptions values($1,null,'opshr',false,'active',now()+interval '1 month')",[user]);
+    await db.query("update public.myops_subscriptions set status='expired' where organization_id=$1",[org]);
+    await db.exec('set role opshr_app');
+    assert.equal((await db.query('select * from opshr.resolve_central_actor($1,$2)',[sid,'opshr'])).rows.length,0);
+    await db.exec('reset role');
+    await db.query('update public.myops_app_sessions set organization_id=null where id=$1',[sid]);
+    await db.exec('set role opshr_app');
+    assert.ok((await db.query('select * from opshr.resolve_central_actor($1,$2)',[sid,'opshr'])).rows.some(r=>r.organization_id===org));
+    await db.exec('reset role');
+    await db.query('delete from public.myops_subscriptions where personal_user_id=$1',[user]);
+    await db.query("update public.myops_subscriptions set status='active' where organization_id=$1",[org]);
+    await db.query('update public.myops_app_sessions set organization_id=$1 where id=$2',[org,sid]);
     await db.exec('set role opshr_app');
     const boundActors = (await db.query('select * from opshr.resolve_central_actor($1,$2)', [sid,'opshr'])).rows;
     assert.equal(boundActors.length,1);
