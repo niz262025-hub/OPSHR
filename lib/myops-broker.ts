@@ -69,6 +69,12 @@ export function createBroker(config: BrokerConfig, transport: typeof fetch = fet
               ? payload.code : null;
             if (typeof reason === 'string' && /^[a-z][a-z_]{0,47}$/.test(reason)) {
               console.warn('opshr_myops_redeem_rejection', reason);
+            } else {
+              const message = payload && typeof payload === 'object' && 'error' in payload ? payload.error : null;
+              const category = message === 'Application request is not authorized.' ? 'central_broker_unauthorized'
+                : message === 'Launch ticket is invalid or expired.' ? 'central_ticket_rejected'
+                : response.headers.has('x-vercel-error') ? 'vercel_error' : 'unknown_upstream_unauthorized';
+              console.warn('opshr_myops_redeem_rejection', category);
             }
           }
           const publicKey = createPublicKey(config.privateKey).export({ type: 'spki', format: 'der' });
