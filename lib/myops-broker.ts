@@ -61,6 +61,14 @@ export function createBroker(config: ReturnType<typeof brokerConfig>, transport:
           ? 'json' : contentType.startsWith('text/html') ? 'html' : 'other';
         console.warn('opshr_myops_transport_failed', path, response.status, responseKind);
         if (path === '/api/app/redeem' && response.status === 401) {
+          if (responseKind === 'json') {
+            const payload: unknown = await response.json().catch(() => null);
+            const reason = payload && typeof payload === 'object' && 'code' in payload
+              ? payload.code : null;
+            if (typeof reason === 'string' && /^[a-z][a-z_]{0,47}$/.test(reason)) {
+              console.warn('opshr_myops_redeem_rejection', reason);
+            }
+          }
           const publicKey = createPublicKey(config.privateKey).export({ type: 'spki', format: 'der' });
           const fingerprint = createHash('sha256').update(publicKey).digest('hex');
           console.warn('opshr_myops_signing_fingerprint', 'current', fingerprint);
