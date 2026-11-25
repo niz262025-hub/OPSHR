@@ -6,8 +6,23 @@ const projectRef="abcdefghijklmnopqrst";
 const url=`postgresql://opshr_app.${projectRef}:synthetic-test-password@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require`;
 const stagingEnv={OPSHR_STAGING_DATABASE_URL:url,OPSHR_MYOPS_CENTRAL_PROJECT_REF:projectRef,OPSHR_STAGING_ONLY:"true"};
 test("accepts approved staging pooler with strict TLS",()=>{
- const result=readOpshrSqlConfig({...stagingEnv,NODE_ENV:"production",VERCEL_ENV:"preview"});
+ const result=readOpshrSqlConfig({...stagingEnv,NODE_ENV:"production"});
  assert.equal(result.ssl.rejectUnauthorized,true);assert.equal(result.max,3);
+});
+test('baseline Preview accepts only its approved project and restricted role',()=>{
+ const ref='wengxxiqwtosirealghx';
+ const pool=`postgresql://opshr_baseline.${ref}:synthetic@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
+ const direct=`postgresql://opshr_baseline:synthetic@db.${ref}.supabase.co:5432/postgres`;
+ const preview={VERCEL_ENV:'preview',OPSHR_STAGING_ONLY:'true',OPSHR_MYOPS_CENTRAL_PROJECT_REF:ref,OPSHR_STAGING_DATABASE_URL:pool};
+ assert.equal(readOpshrSqlConfig(preview).ssl.rejectUnauthorized,true);
+ assert.equal(readOpshrSqlConfig({...preview,OPSHR_STAGING_DATABASE_URL:direct}).ssl.rejectUnauthorized,true);
+ for(const candidate of [pool.replace('opshr_baseline.','postgres.'),pool.replace('opshr_baseline.','opshr_app.'),direct.replace('opshr_baseline:','postgres:')])
+  assert.throws(()=>readOpshrSqlConfig({...preview,OPSHR_STAGING_DATABASE_URL:candidate}));
+ assert.throws(()=>readOpshrSqlConfig({...preview,OPSHR_MYOPS_CENTRAL_PROJECT_REF:projectRef}),/Unapproved baseline staging project/);
+ assert.throws(()=>readOpshrSqlConfig({...preview,OPSHR_STAGING_ONLY:'false'}),/disabled/);
+ const production={VERCEL_ENV:'production',OPSHR_ENABLE_PRODUCTION_DATABASE:'true',OPSHR_MYOPS_CENTRAL_PROJECT_REF:ref,OPSHR_DATABASE_URL:pool};
+ assert.throws(()=>readOpshrSqlConfig(production));
+ assert.doesNotThrow(()=>readOpshrSqlConfig({...production,OPSHR_DATABASE_URL:pool.replace('opshr_baseline.','opshr_app.')}));
 });
 test("rejects missing database URL",()=>{
  assert.throws(()=>readOpshrSqlConfig({OPSHR_STAGING_ONLY:"true",OPSHR_MYOPS_CENTRAL_PROJECT_REF:projectRef}),/Missing/);

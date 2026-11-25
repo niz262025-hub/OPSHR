@@ -52,3 +52,14 @@ test('configuration is default off and rejects alternate broker origin or non-ca
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr-staging', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'x'.repeat(48) }));
   assert.throws(() => brokerConfig({ OPSHR_ENABLE_EMPLOYEES: 'true', OPSHR_MYOPS_APP_ID: 'opshr', OPSHR_MYOPS_PRIVATE_KEY: 'x'.repeat(64), OPSHR_COOKIE_SECRET: 'short' }));
 });
+test('staging broker origin is limited to explicitly isolated Preview', () => {
+  const stagingOrigin = 'https://southerndotcom-website-git-staging-p-9ff219-mohd-syaiful-nizam1.vercel.app';
+  const preview = { ...validBrokerEnv, VERCEL_ENV: 'preview', OPSHR_STAGING_ONLY: 'true', OPSHR_MYOPS_ORIGIN: stagingOrigin };
+  assert.equal(brokerConfig(preview).origin, stagingOrigin);
+  for (const origin of ['https://www.myops.com.my', stagingOrigin + '/path', stagingOrigin + '?x=1', 'https://evil.example'])
+    assert.throws(() => brokerConfig({ ...preview, OPSHR_MYOPS_ORIGIN: origin }));
+  for (const env of [{ VERCEL_ENV: 'production', OPSHR_STAGING_ONLY: 'true' }, { VERCEL_ENV: 'preview', OPSHR_STAGING_ONLY: 'false' }, { VERCEL_ENV: 'development', OPSHR_STAGING_ONLY: 'true' }]) {
+    assert.throws(() => brokerConfig({ ...preview, ...env }));
+    assert.equal(brokerConfig({ ...preview, ...env, OPSHR_MYOPS_ORIGIN: 'https://www.myops.com.my' }).origin, 'https://www.myops.com.my');
+  }
+});
