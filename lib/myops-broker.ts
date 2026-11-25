@@ -20,7 +20,10 @@ export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   const rawOrigin = env.OPSHR_MYOPS_ORIGIN || 'https://www.myops.com.my';
   let origin: URL;
   try { origin = new URL(rawOrigin); } catch { throw new AccessError(503); }
-  if (origin.origin !== 'https://www.myops.com.my' || origin.href !== origin.origin + '/') throw new AccessError(503);
+  const expectedOrigin = env.VERCEL_ENV === 'preview' && env.OPSHR_STAGING_ONLY === 'true'
+    ? 'https://southerndotcom-website-git-staging-p-9ff219-mohd-syaiful-nizam1.vercel.app'
+    : 'https://www.myops.com.my';
+  if (origin.origin !== expectedOrigin || origin.href !== origin.origin + '/') throw new AccessError(503);
   if ((env.OPSHR_MYOPS_APP_ID || '') !== 'opshr' || !env.OPSHR_MYOPS_PRIVATE_KEY || (env.OPSHR_COOKIE_SECRET || '').length < 32) throw new AccessError(503);
   let key: ReturnType<typeof createPrivateKey>;
   try { key = createPrivateKey(env.OPSHR_MYOPS_PRIVATE_KEY!); } catch { throw new AccessError(503); }
