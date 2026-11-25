@@ -73,6 +73,34 @@ test('real PostgreSQL policies deny missing/revoked sessions, forged tenants and
     const created = await insert(org);
     assert.equal(created.rows.length,1);
     assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,1);
+    await db.exec('reset role');
+    const otherUser='00000000-0000-4000-8000-000000000021';
+    const otherLogin='00000000-0000-4000-8000-000000000024';
+    const otherSid='00000000-0000-4000-8000-000000000025';
+    await db.query("insert into public.myops_subscriptions values(null,$1,'opshr',false,'active',now()+interval '1 month')",[otherOrg]);
+    await db.query('insert into public.myops_login_sessions(id,user_id) values($1,$2)',[otherLogin,otherUser]);
+    await db.query("insert into public.myops_app_sessions(id,user_id,app_id,product_slug,login_session_id) values($1,$2,'opshr','opshr',$3)",[otherSid,otherUser,otherLogin]);
+    await db.query("insert into public.myops_memberships(user_id,organization_id,status) values($1,$2,'active')",[otherUser,otherOrg]);
+    await db.query("insert into public.myops_app_grants values($1,$2,'opshr')",[otherUser,otherOrg]);
+    await db.query("insert into opshr.opshr_identity_roles(identity_user_id,organization_id,role,active) values($1,$2,'hr_admin',true)",[otherUser,otherOrg]);
+    await db.exec('set role opshr_app');
+    await setContext(otherOrg,otherSid);
+    await db.query("select set_config('opshr.identity_user_id',$1,false)",[otherUser]);
+    const otherCreated=await insert(otherOrg);
+    for(const [actor,session,own,foreign] of [[user,sid,org,otherOrg],[otherUser,otherSid,otherOrg,org]]) {
+      await setContext(own,session);
+      await db.query("select set_config('opshr.identity_user_id',$1,false)",[actor]);
+      assert.equal((await db.query('select id from opshr.opshr_employees where organization_id=$1',[own])).rows.length,1);
+      assert.equal((await db.query('select id from opshr.opshr_employees where organization_id=$1',[foreign])).rows.length,0);
+      assert.equal((await db.query("update opshr.opshr_employees set department='Forbidden' where organization_id=$1 returning id",[foreign])).rows.length,0);
+      assert.equal((await db.query('delete from opshr.opshr_employees where organization_id=$1 returning id',[foreign])).rows.length,0);
+      await assert.rejects(insert(foreign),/row-level security/);
+    }
+    await db.query('delete from opshr.opshr_employees where id=$1',[otherCreated.rows[0].id]);
+    await db.exec('reset role');
+    await db.query('delete from public.myops_subscriptions where organization_id=$1',[otherOrg]);
+    await db.exec('set role opshr_app');
+    await setContext(org);
     await setContext(otherOrg);
     assert.equal((await db.query('select * from opshr.opshr_employees')).rows.length,0);
     await assert.rejects(insert(otherOrg));
