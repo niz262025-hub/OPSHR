@@ -37,12 +37,15 @@ export function readOpshrSqlConfig(
     throw new Error("Incomplete staging database credentials");
   }
   // The server-side project reference must match the connection URL.
+  const baselinePreview = env.VERCEL_ENV === 'preview' && stagingEnabled;
+  if (baselinePreview && projectRef !== 'wengxxiqwtosirealghx') throw new Error('Unapproved baseline staging project');
+  const role = baselinePreview ? 'opshr_baseline' : 'opshr_app';
   const host = url.hostname.toLowerCase();
   const direct = host === `db.${projectRef}.supabase.co`;
   const pooler = /^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(host) &&
-    decodeURIComponent(url.username) === `opshr_app.${projectRef}`;
+    decodeURIComponent(url.username) === `${role}.${projectRef}`;
   if (!direct && !pooler) throw new Error("Database does not match the configured MYOPS Central project");
-  if (direct && decodeURIComponent(url.username) !== "opshr_app") {
+  if (direct && decodeURIComponent(url.username) !== role) {
     throw new Error("Restricted OpsHR database role required");
   }
   if (url.pathname !== "/postgres" || !["", "5432", "6543"].includes(url.port)) {
