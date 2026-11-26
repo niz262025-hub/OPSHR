@@ -6,6 +6,19 @@ on:
 permissions:
   contents: read
 jobs:
+  behavioral:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Run existing behavioral security regression tests
+        run: node --test tests/central-rls.test.mjs
   replay:
     runs-on: ubuntu-latest
     timeout-minutes: 30
