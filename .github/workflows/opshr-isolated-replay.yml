@@ -1,0 +1,67 @@
+name: OpsHR isolated Supabase replay
+on:
+  push:
+    branches: ['staging/production-baseline']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned Central dependency source
+        uses: actions/checkout@v4
+        with:
+          repository: niz262025-hub/southerndotcom-website
+          ref: 7822e95bb13f27b3e97b67c5004b04557585ea01
+          path: central-dependency
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.54.11
+      - name: Start disposable local Supabase
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/opshr-replay"
+          cd "$RUNNER_TEMP/opshr-replay"
+          supabase init
+          supabase start
+      - name: Replay pinned Central prerequisites and OpsHR migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGHOST=127.0.0.1 PGPORT=54322 PGUSER=postgres PGPASSWORD=postgres PGDATABASE=postgres
+          for file in \
+            migrations/202610160001_myops_identity_foundation.sql \
+            migrations/20261101104802_central_trial_7_day_foundation.sql \
+            migrations/20261101164633_central_trial_usage_limits.sql \
+            migrations/20261118044103_myops_mobile_sso_tables.sql \
+            migrations/20261125124355_production_parity_profile_logo_policies.sql \
+            proposals/phase3_founders_100.sql \
+            proposals/202610170001_myops_app_access.sql \
+            proposals/202610170002_myops_login_sessions.sql \
+            migrations/20261125175729_production_parity_mobile_security_constraints.sql \
+            proposals/20261118044103_myops_mobile_sso_rpcs.sql \
+            migrations/20261125192226_central_browser_role_noncrud_hardening.sql \
+            migrations/20261125193036_central_service_role_noncrud_hardening.sql
+          do
+            echo "Central prerequisite: $file"
+            psql -X -v ON_ERROR_STOP=1 -f "central-dependency/supabase/$file"
+          done
+          psql -X -v ON_ERROR_STOP=1 -c 'create role opshr_app login nosuperuser nocreatedb nocreaterole noreplication nobypassrls'
+          psql -X -v ON_ERROR_STOP=1 -f database/migrations/202611070001_employee_master.sql
+          for file in supabase/migrations/*.sql; do
+            echo "OpsHR migration: $file"
+            psql -X -v ON_ERROR_STOP=1 -f "$file"
+          done
+          psql -X -v ON_ERROR_STOP=1 -f scripts/assert-isolated-replay.sql
+      - name: Stop disposable local Supabase
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -d "$RUNNER_TEMP/opshr-replay/supabase" ]; then
+            cd "$RUNNER_TEMP/opshr-replay"
+            supabase stop --no-backup
+          fi
