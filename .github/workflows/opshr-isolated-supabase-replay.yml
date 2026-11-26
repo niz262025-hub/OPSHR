@@ -109,7 +109,7 @@ jobs:
           INSERT INTO auth.users(id,email) VALUES ('00000000-0000-4000-8000-000000000011','opshr-replay@example.invalid');
           INSERT INTO public.myops_profiles(user_id,account_type) VALUES ('00000000-0000-4000-8000-000000000011','personal') ON CONFLICT(user_id) DO UPDATE SET account_type='personal';
           INSERT INTO public.myops_products(slug,display_name,launch_status) VALUES ('opshr','OpsHR','live') ON CONFLICT(slug) DO UPDATE SET launch_status='live';
-          INSERT INTO public.myops_app_clients(app_id,product_slug,public_key_current,enabled) VALUES ('opshr','opshr',E'-----BEGIN PUBLIC KEY-----\\nMCowBQYDK2VwAyEAg64zMyj3O8Mp5FrGNMWQ2pAh4l+lWWBy9vTaT3v3Re4=\\n-----END PUBLIC KEY-----',true) ON CONFLICT(app_id) DO UPDATE SET enabled=true;
+          INSERT INTO public.myops_app_clients(app_id,product_slug,public_key_current,enabled) VALUES ('opshr','opshr',('-----BEGIN PUBLIC KEY-----'||chr(10)||'MCowBQYDK2VwAyEA'||repeat('A',43)||'='||chr(10)||'-----END PUBLIC KEY-----'),true) ON CONFLICT(app_id) DO UPDATE SET enabled=true;
           INSERT INTO public.myops_login_sessions(id,user_id) VALUES ('00000000-0000-4000-8000-000000000014','00000000-0000-4000-8000-000000000011');
           INSERT INTO public.myops_app_sessions(id,user_id,app_id,product_slug,login_session_id) VALUES ('00000000-0000-4000-8000-000000000015','00000000-0000-4000-8000-000000000011','opshr','opshr','00000000-0000-4000-8000-000000000014');
           INSERT INTO public.myops_trials(user_id,started_at,expires_at,status,policy_version) VALUES ('00000000-0000-4000-8000-000000000011',now(),now()+interval '168 hours','active',1) ON CONFLICT(user_id) DO UPDATE SET started_at=now(),expires_at=now()+interval '168 hours',status='active';
