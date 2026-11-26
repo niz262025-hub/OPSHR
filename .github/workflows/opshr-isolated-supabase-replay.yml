@@ -98,6 +98,36 @@ jobs:
           END $$;
           ROLLBACK;
           SQL
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO auth.users(id,email) VALUES ('00000000-0000-4000-8000-000000000011','opshr-replay@example.invalid');
+          INSERT INTO public.myops_profiles(user_id,account_type) VALUES ('00000000-0000-4000-8000-000000000011','personal') ON CONFLICT(user_id) DO UPDATE SET account_type='personal';
+          INSERT INTO public.myops_products(slug,display_name,launch_status) VALUES ('opshr','OpsHR','live') ON CONFLICT(slug) DO UPDATE SET launch_status='live';
+          INSERT INTO public.myops_app_clients(app_id,product_slug,public_key_current,enabled) VALUES ('opshr','opshr',E'-----BEGIN PUBLIC KEY-----\\nMCowBQYDK2VwAyEAg64zMyj3O8Mp5FrGNMWQ2pAh4l+lWWBy9vTaT3v3Re4=\\n-----END PUBLIC KEY-----',true) ON CONFLICT(app_id) DO UPDATE SET enabled=true;
+          INSERT INTO public.myops_login_sessions(id,user_id) VALUES ('00000000-0000-4000-8000-000000000014','00000000-0000-4000-8000-000000000011');
+          INSERT INTO public.myops_app_sessions(id,user_id,app_id,product_slug,login_session_id) VALUES ('00000000-0000-4000-8000-000000000015','00000000-0000-4000-8000-000000000011','opshr','opshr','00000000-0000-4000-8000-000000000014');
+          INSERT INTO public.myops_trials(user_id,started_at,expires_at,status,policy_version) VALUES ('00000000-0000-4000-8000-000000000011',now(),now()+interval '168 hours','active',1) ON CONFLICT(user_id) DO UPDATE SET started_at=now(),expires_at=now()+interval '168 hours',status='active';
+          SQL
+          context="SET ROLE opshr_app; SET opshr.identity_user_id='00000000-0000-4000-8000-000000000011'; SET opshr.organization_id='personal:00000000-0000-4000-8000-000000000011'; SET opshr.central_session_id='00000000-0000-4000-8000-000000000015'; SET opshr.central_app_id='opshr'; SET opshr.app_grant_active='true';"
+          insert_employee() {
+            psql -X -v ON_ERROR_STOP=1 -c "$context INSERT INTO opshr.opshr_employees(organization_id,employee_code,full_name,work_email,department,position_title,start_date,employment_status) VALUES ('personal:00000000-0000-4000-8000-000000000011','$1','Synthetic','$1@example.invalid','Test','Test',current_date,'active');"
+          }
+          for i in $(seq 1 29); do insert_employee "trial-$i"; done
+          set +e
+          insert_employee concurrent-a >"$RUNNER_TEMP/quota-a.log" 2>&1 & a=$!
+          insert_employee concurrent-b >"$RUNNER_TEMP/quota-b.log" 2>&1 & b=$!
+          wait "$a"; ra=$?
+          wait "$b"; rb=$?
+          set -e
+          cat "$RUNNER_TEMP/quota-a.log" "$RUNNER_TEMP/quota-b.log"
+          if ! { [[ "$ra" == 0 && "$rb" != 0 ]] || [[ "$rb" == 0 && "$ra" != 0 ]]; }; then exit 1; fi
+          grep -q 'OpsHR trial employee limit reached' "$RUNNER_TEMP/quota-a.log" "$RUNNER_TEMP/quota-b.log"
+          test "$(psql -X -Atc "SELECT count(*) FROM opshr.opshr_employees WHERE organization_id='personal:00000000-0000-4000-8000-000000000011'")" = 30
+          psql -X -v ON_ERROR_STOP=1 -c "$context DELETE FROM opshr.opshr_employees WHERE employee_code='trial-1';"
+          if insert_employee recreate >"$RUNNER_TEMP/recreate.log" 2>&1; then echo 'Quota reset bypass'; exit 1; fi
+          grep -q 'OpsHR trial employee limit reached' "$RUNNER_TEMP/recreate.log"
+          psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO opshr.opshr_identity_roles(identity_user_id,organization_id,role,active) VALUES ('00000000-0000-4000-8000-000000000011','personal:00000000-0000-4000-8000-000000000011','hr_admin',true);"
+          if insert_employee admin-bypass >"$RUNNER_TEMP/admin-bypass.log" 2>&1; then echo 'Local HR admin quota bypass'; exit 1; fi
+          grep -q 'OpsHR trial employee limit reached' "$RUNNER_TEMP/admin-bypass.log"
       - name: Stop disposable Supabase
         if: always()
         run: |
