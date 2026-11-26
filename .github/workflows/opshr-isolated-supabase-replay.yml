@@ -50,7 +50,7 @@ jobs:
             psql -X -v ON_ERROR_STOP=1 -f "central/supabase/$file"
           done
           psql -X -v ON_ERROR_STOP=1 -c 'CREATE ROLE opshr_app LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT'
-          for file in database/migrations/202611070001_employee_master.sql supabase/migrations/20261107174454_central_session_bridge.sql supabase/migrations/20261107180021_register_opshr_client.sql supabase/migrations/20261107181326_opshr_personal_workspace_release.sql supabase/migrations/20261107184134_opshr_free_trial_quota.sql; do
+          for file in database/migrations/202611070001_employee_master.sql supabase/migrations/20261107174454_central_session_bridge.sql supabase/migrations/20261107180021_register_opshr_client.sql supabase/migrations/20261107181326_opshr_personal_workspace_release.sql supabase/migrations/20261107184134_opshr_free_trial_quota.sql supabase/migrations/202611260001_opshr_trial_quota_entitlement_hardening.sql; do
             echo "Replay: $file"
             psql -X -v ON_ERROR_STOP=1 -f "$file"
           done
@@ -128,6 +128,9 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO opshr.opshr_identity_roles(identity_user_id,organization_id,role,active) VALUES ('00000000-0000-4000-8000-000000000011','personal:00000000-0000-4000-8000-000000000011','hr_admin',true);"
           if insert_employee admin-bypass >"$RUNNER_TEMP/admin-bypass.log" 2>&1; then echo 'Local HR admin quota bypass'; exit 1; fi
           grep -q 'OpsHR trial employee limit reached' "$RUNNER_TEMP/admin-bypass.log"
+          psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.myops_subscriptions(personal_user_id,product_slug,status) VALUES ('00000000-0000-4000-8000-000000000011','opsfinance','active');"
+          if insert_employee cross-app-bypass >"$RUNNER_TEMP/cross-app.log" 2>&1; then echo 'Cross-app quota bypass'; exit 1; fi
+          grep -q 'OpsHR trial employee limit reached' "$RUNNER_TEMP/cross-app.log"
       - name: Stop disposable Supabase
         if: always()
         run: |
