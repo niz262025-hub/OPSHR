@@ -142,24 +142,24 @@ jobs:
           DELETE FROM opshr.opshr_identity_roles WHERE identity_user_id='00000000-0000-4000-8000-000000000011';
           UPDATE public.myops_trials SET status='expired' WHERE user_id='00000000-0000-4000-8000-000000000011';
           SET ROLE opshr_app;
-          DO $
+          DO $$
           BEGIN
             IF EXISTS (SELECT 1 FROM opshr.resolve_central_actor('00000000-0000-4000-8000-000000000015','opshr')) THEN RAISE EXCEPTION 'Expired trial or unrelated subscription authorized OpsHR'; END IF;
-          END $;
+          END $$;
           RESET ROLE;
           INSERT INTO public.myops_subscriptions(personal_user_id,product_slug,status) VALUES ('00000000-0000-4000-8000-000000000011','opshr','active');
           SET ROLE opshr_app;
-          DO $
+          DO $$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM opshr.resolve_central_actor('00000000-0000-4000-8000-000000000015','opshr')) THEN RAISE EXCEPTION 'Paid OpsHR entitlement rejected'; END IF;
-          END $;
+          END $$;
           RESET ROLE;
           UPDATE public.myops_login_sessions SET revoked_at=now() WHERE id='00000000-0000-4000-8000-000000000014';
           SET ROLE opshr_app;
-          DO $
+          DO $$
           BEGIN
             IF EXISTS (SELECT 1 FROM opshr.resolve_central_actor('00000000-0000-4000-8000-000000000015','opshr')) THEN RAISE EXCEPTION 'Revoked Central login accepted'; END IF;
-          END $;
+          END $$;
           RESET ROLE;
           SQL
       - name: Stop disposable Supabase
