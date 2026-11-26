@@ -62,7 +62,28 @@ export function previewUpstreamDiagnostic(origin: string, path: string, response
 export function createBroker(config: BrokerConfig, transport: typeof fetch = fetch) {
   async function post(path: string, body: object): Promise<Record<string, unknown>> {
     let response: Response;
-    try { response = await transport(config.origin + path, { method: 'POST', headers: signedHeaders(path, body, config), body: canonicalJson(body), cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(5000) }); }
+    try {
+      const url = config.origin + path;
+      const headers = new Headers(signedHeaders(path, body, config));
+      const share = process.env.MYOPS_STAGING_SHARE_TOKEN;
+      if (process.env.VERCEL_ENV === 'preview' && config.origin === 'https://southerndotcom-website-git-fix-stagi-3dae88-mohd-syaiful-nizam1.vercel.app' && share) {
+        if (!/^[A-Za-z0-9_-]{16,256}$/.test(share)) throw new AccessError(503);
+        const bootstrapUrl = new URL(url);
+        bootstrapUrl.searchParams.set('_vercel_share', share);
+        const bootstrap = await transport(bootstrapUrl.href, {
+          method: 'GET', redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(8000),
+        });
+        const location = bootstrap.headers.get('location');
+        const cookie = bootstrap.headers.getSetCookie().find(value => value.startsWith('_vercel_jwt='))?.split(';')[0];
+        if (![302, 303, 307, 308].includes(bootstrap.status) || !location
+          || new URL(location, bootstrapUrl).href !== url || !cookie || !/^_vercel_jwt=[A-Za-z0-9._-]+$/.test(cookie)) {
+          throw new AccessError(503);
+        }
+        headers.set('Cookie', cookie);
+      }
+      response = await transport(url, { method: 'POST', headers, body: canonicalJson(body), cache: 'no-store',
+        redirect: 'error', signal: AbortSignal.timeout(5000) });
+    }
     catch (error) {
       if (process.env.VERCEL_ENV === 'preview') {
         const reason = error instanceof Error && ['TimeoutError', 'AbortError', 'TypeError'].includes(error.name)
