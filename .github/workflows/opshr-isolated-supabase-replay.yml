@@ -1,0 +1,92 @@
+name: OpsHR isolated Supabase replay
+on:
+  push:
+    branches: ['staging/production-baseline']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: niz262025-hub/southerndotcom-website
+          ref: 7822e95bb13f27b3e97b67c5004b04557585ea01
+          path: central
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.54.11
+      - name: Start disposable Supabase
+        run: |
+          mkdir -p "$RUNNER_TEMP/opshr-replay"
+          cd "$RUNNER_TEMP/opshr-replay"
+          supabase init
+          supabase start
+      - name: Replay dependencies and OpsHR
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGHOST=127.0.0.1 PGPORT=54322 PGUSER=postgres PGPASSWORD=postgres PGDATABASE=postgres
+          for file in migrations/202610160001_myops_identity_foundation.sql migrations/20261101104802_central_trial_7_day_foundation.sql migrations/20261101164633_central_trial_usage_limits.sql migrations/20261118044103_myops_mobile_sso_tables.sql migrations/20261125124355_production_parity_profile_logo_policies.sql proposals/phase3_founders_100.sql proposals/202610170001_myops_app_access.sql proposals/202610170002_myops_login_sessions.sql migrations/20261125175729_production_parity_mobile_security_constraints.sql proposals/20261118044103_myops_mobile_sso_rpcs.sql migrations/20261125192226_central_browser_role_noncrud_hardening.sql migrations/20261125193036_central_service_role_noncrud_hardening.sql; do
+            psql -X -v ON_ERROR_STOP=1 -f "central/supabase/$file"
+          done
+          psql -X -v ON_ERROR_STOP=1 -c 'CREATE ROLE opshr_app LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT'
+          for file in database/migrations/202611070001_employee_master.sql supabase/migrations/20261107174454_central_session_bridge.sql supabase/migrations/20261107180021_register_opshr_client.sql supabase/migrations/20261107181326_opshr_personal_workspace_release.sql supabase/migrations/20261107184134_opshr_free_trial_quota.sql; do
+            echo "Replay: $file"
+            psql -X -v ON_ERROR_STOP=1 -f "$file"
+          done
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE t text; r text; p text; f text;
+          BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='opshr_app' AND (rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication OR NOT rolcanlogin)) THEN RAISE EXCEPTION 'Unsafe app role'; END IF;
+            IF EXISTS (SELECT 1 FROM pg_auth_members WHERE member='opshr_app'::regrole) THEN RAISE EXCEPTION 'Unexpected role membership'; END IF;
+            FOREACH t IN ARRAY ARRAY['opshr_employees','opshr_identity_roles','trial_employee_creations'] LOOP
+              IF NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=to_regclass('opshr.'||t) AND relrowsecurity) THEN RAISE EXCEPTION 'Missing RLS %',t; END IF;
+              FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
+                FOREACH p IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'] LOOP
+                  IF has_table_privilege(r,'opshr.'||t,p) THEN RAISE EXCEPTION 'Unexpected ACL % % %',r,t,p; END IF;
+                END LOOP;
+              END LOOP;
+            END LOOP;
+            IF NOT (SELECT relforcerowsecurity FROM pg_class WHERE oid='opshr.opshr_employees'::regclass) THEN RAISE EXCEPTION 'Missing forced RLS'; END IF;
+            FOREACH t IN ARRAY ARRAY['opshr_identity_roles','trial_employee_creations'] LOOP
+              FOREACH p IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'] LOOP
+                IF has_table_privilege('opshr_app','opshr.'||t,p) THEN RAISE EXCEPTION 'Private table access % %',t,p; END IF;
+              END LOOP;
+            END LOOP;
+            FOREACH f IN ARRAY ARRAY['resolve_central_actor(uuid,text)','opshr_current_hr_member(text)','end_central_login(uuid,text)','active_trial(uuid,text)','enforce_employee_trial_limit()'] LOOP
+              FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
+                IF has_function_privilege(r,'opshr.'||f,'EXECUTE') THEN RAISE EXCEPTION 'Unexpected RPC ACL % %',r,f; END IF;
+              END LOOP;
+              IF has_function_privilege('opshr_app','opshr.'||f,'EXECUTE') <> (f IN ('resolve_central_actor(uuid,text)','opshr_current_hr_member(text)','end_central_login(uuid,text)')) THEN RAISE EXCEPTION 'App RPC ACL mismatch %',f; END IF;
+            END LOOP;
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='opshr.opshr_employees'::regclass AND tgname='opshr_employee_trial_limit' AND tgenabled='O') THEN RAISE EXCEPTION 'Missing trial trigger'; END IF;
+          END $$;
+          BEGIN;
+          SET LOCAL ROLE opshr_app;
+          SELECT set_config('opshr.app_grant_active','true',true),set_config('opshr.organization_id','forged',true),set_config('opshr.identity_user_id','00000000-0000-0000-0000-000000000001',true),set_config('opshr.central_session_id','00000000-0000-0000-0000-000000000002',true),set_config('opshr.central_app_id','opshr',true);
+          DO $$
+          BEGIN
+            IF opshr.opshr_current_hr_member('forged') IS TRUE THEN RAISE EXCEPTION 'Forged actor accepted'; END IF;
+            IF EXISTS (SELECT 1 FROM opshr.resolve_central_actor('00000000-0000-0000-0000-000000000002','opshr')) THEN RAISE EXCEPTION 'Unknown session accepted'; END IF;
+            IF opshr.end_central_login('00000000-0000-0000-0000-000000000002','opshr') IS DISTINCT FROM false THEN RAISE EXCEPTION 'Unknown logout accepted'; END IF;
+            BEGIN
+              INSERT INTO opshr.opshr_employees(organization_id,employee_code,full_name,work_email,department,position_title,start_date,employment_status) VALUES ('forged','E1','Test','test@example.invalid','Test','Test',current_date,'active');
+              RAISE EXCEPTION 'Unauthorized insert accepted';
+            EXCEPTION WHEN insufficient_privilege THEN NULL;
+            END;
+          END $$;
+          ROLLBACK;
+          SQL
+      - name: Stop disposable Supabase
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/opshr-replay"
+          supabase stop --no-backup
