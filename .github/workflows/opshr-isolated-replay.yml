@@ -56,6 +56,9 @@ jobs:
             echo "OpsHR migration: $file"
             psql -X -v ON_ERROR_STOP=1 -f "$file"
           done
+          # Permit the disposable test administrator to SET ROLE for RLS tests.
+          # The application role itself remains non-superuser and non-bypass.
+          psql -X -v ON_ERROR_STOP=1 -c 'grant opshr_app to postgres'
           psql -X -v ON_ERROR_STOP=1 -f scripts/assert-isolated-replay.sql
       - name: Stop disposable local Supabase
         if: always()
