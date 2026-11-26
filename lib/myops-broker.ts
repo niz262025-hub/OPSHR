@@ -82,7 +82,7 @@ export function createBroker(config: BrokerConfig, transport: typeof fetch = fet
         headers.set('Cookie', cookie);
       }
       response = await transport(url, { method: 'POST', headers, body: canonicalJson(body), cache: 'no-store',
-        redirect: 'error', signal: AbortSignal.timeout(5000) });
+        redirect: 'error', signal: AbortSignal.timeout(process.env.VERCEL_ENV === 'preview' ? 15000 : 5000) });
     }
     catch (error) {
       if (process.env.VERCEL_ENV === 'preview') {
