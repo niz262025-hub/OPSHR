@@ -88,3 +88,12 @@ test('preview diagnostics reject untrusted request IDs and never return response
   assert.equal(result.handlerReached, 'unknown'); assert.equal(result.status, 401);
   assert.doesNotMatch(JSON.stringify(result), /secret/);
 });
+
+test('Central #105 is trusted only as an exact Preview origin', () => {
+  const origin = 'https://southerndotcom-website-git-fix-stagi-3dae88-mohd-syaiful-nizam1.vercel.app';
+  const preview = { ...validBrokerEnv, VERCEL_ENV: 'preview', OPSHR_MYOPS_ORIGIN: origin };
+  assert.equal(brokerConfig(preview).origin, origin);
+  assert.throws(() => brokerConfig({ ...preview, VERCEL_ENV: 'production' }));
+  assert.throws(() => brokerConfig({ ...preview, OPSHR_MYOPS_ORIGIN: origin + '.example' }));
+  assert.throws(() => brokerConfig({ ...preview, OPSHR_MYOPS_ORIGIN: origin + '/api' }));
+});

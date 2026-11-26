@@ -21,6 +21,7 @@ export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   const stagingOrigins = [
     'https://southerndotcom-website-git-feat-myop-ca0019-mohd-syaiful-nizam1.vercel.app',
     'https://southerndotcom-website-git-fix-centr-db9115-mohd-syaiful-nizam1.vercel.app',
+    'https://southerndotcom-website-git-fix-stagi-3dae88-mohd-syaiful-nizam1.vercel.app',
   ];
   const preview = env.VERCEL_ENV === 'preview';
   const rawOrigin = env.OPSHR_MYOPS_ORIGIN || (preview ? '' : productionOrigin);
