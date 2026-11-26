@@ -131,6 +131,30 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.myops_subscriptions(personal_user_id,product_slug,status) VALUES ('00000000-0000-4000-8000-000000000011','opsfinance','active');"
           if insert_employee cross-app-bypass >"$RUNNER_TEMP/cross-app.log" 2>&1; then echo 'Cross-app quota bypass'; exit 1; fi
           grep -q 'OpsHR trial employee limit reached' "$RUNNER_TEMP/cross-app.log"
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          DELETE FROM opshr.opshr_identity_roles WHERE identity_user_id='00000000-0000-4000-8000-000000000011';
+          UPDATE public.myops_trials SET status='expired' WHERE user_id='00000000-0000-4000-8000-000000000011';
+          SET ROLE opshr_app;
+          DO $
+          BEGIN
+            IF EXISTS (SELECT 1 FROM opshr.resolve_central_actor('00000000-0000-4000-8000-000000000015','opshr')) THEN RAISE EXCEPTION 'Expired trial or unrelated subscription authorized OpsHR'; END IF;
+          END $;
+          RESET ROLE;
+          INSERT INTO public.myops_subscriptions(personal_user_id,product_slug,status) VALUES ('00000000-0000-4000-8000-000000000011','opshr','active');
+          SET ROLE opshr_app;
+          DO $
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM opshr.resolve_central_actor('00000000-0000-4000-8000-000000000015','opshr')) THEN RAISE EXCEPTION 'Paid OpsHR entitlement rejected'; END IF;
+          END $;
+          RESET ROLE;
+          UPDATE public.myops_login_sessions SET revoked_at=now() WHERE id='00000000-0000-4000-8000-000000000014';
+          SET ROLE opshr_app;
+          DO $
+          BEGIN
+            IF EXISTS (SELECT 1 FROM opshr.resolve_central_actor('00000000-0000-4000-8000-000000000015','opshr')) THEN RAISE EXCEPTION 'Revoked Central login accepted'; END IF;
+          END $;
+          RESET ROLE;
+          SQL
       - name: Stop disposable Supabase
         if: always()
         run: |
