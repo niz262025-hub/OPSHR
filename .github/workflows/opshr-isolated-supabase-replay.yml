@@ -56,6 +56,7 @@ jobs:
             psql -X -v ON_ERROR_STOP=1 -f "central/supabase/$file"
           done
           psql -X -v ON_ERROR_STOP=1 -c 'CREATE ROLE opshr_app LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT'
+          psql -X -v ON_ERROR_STOP=1 -c 'GRANT opshr_app TO postgres WITH SET TRUE'
           for file in database/migrations/202611070001_employee_master.sql supabase/migrations/20261107174454_central_session_bridge.sql supabase/migrations/20261107180021_register_opshr_client.sql supabase/migrations/20261107181326_opshr_personal_workspace_release.sql supabase/migrations/20261107184134_opshr_free_trial_quota.sql supabase/migrations/202611260001_opshr_trial_quota_entitlement_hardening.sql; do
             echo "Replay: $file"
             psql -X -v ON_ERROR_STOP=1 -f "$file"
