@@ -4,7 +4,7 @@ import {
   AccessError,
   brokerConfig,
   createBroker,
-  readCookie,
+  readCookieClaims,
   SESSION_COOKIE,
 } from "../../lib/myops-broker";
 import EmployeeDirectory from "./employee-directory";
@@ -17,10 +17,10 @@ export default async function EmployeesPage() {
 
   try {
     const config = brokerConfig();
-    const sessionId = readCookie(sessionCookie, config.secret);
-    if (!sessionId) throw new AccessError(401);
+    const claims = readCookieClaims(sessionCookie, config.secret);
+    if (!claims || (config.organizationBound && !claims.organizationId)) throw new AccessError(401);
 
-    await createBroker(config).validate(sessionId, false);
+    await createBroker(config).validate(claims.sessionId, false, claims.organizationId);
   } catch (error) {
     if (error instanceof AccessError && error.status === 401) redirect(MYOPS_HOME);
     throw error;
