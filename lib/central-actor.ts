@@ -32,7 +32,9 @@ async function resolveActor(sessionId: string, appId: string) {
         : message === 'Database URL fragments are not supported' ? 'url_fragment'
         : /tenant or user not found/i.test(message) ? 'pooler_login'
         : 'unknown';
-      console.warn('opshr_actor_query_unavailable', reason);
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : null;
+      const state = typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code) ? code : null;
+      console.warn('opshr_actor_query_unavailable', { reason, state });
     }
     throw error;
   }
