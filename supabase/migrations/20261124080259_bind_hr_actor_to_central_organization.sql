@@ -9,7 +9,7 @@ as $fn$
     from public.myops_app_sessions s
     join public.myops_login_sessions l on l.id=s.login_session_id and l.user_id=s.user_id
     join public.myops_app_clients c on c.app_id=s.app_id and c.enabled
-    where s.id=session_id and s.app_id=client_id and c.product_slug in ('opshr','opsfinance','opsflow','opsp')
+    where s.id=session_id and s.app_id=client_id and c.product_slug = 'opshr'
       and s.product_slug = c.product_slug
       and s.revoked_at is null and l.revoked_at is null
       and s.last_activity_at>now()-interval '15 minutes' and s.last_activity_at<=now()
