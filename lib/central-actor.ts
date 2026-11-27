@@ -34,7 +34,10 @@ async function resolveActor(sessionId: string, appId: string) {
         : 'unknown';
       const code = error && typeof error === 'object' && 'code' in error ? error.code : null;
       const state = typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code) ? code : null;
-      console.warn('opshr_actor_query_unavailable', { reason, state });
+      const allowed = ['ENETUNREACH', 'EHOSTUNREACH', 'EADDRNOTAVAIL', 'ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ERR_TLS_CERT_ALTNAME_INVALID', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'];
+      const failureCodes = (error instanceof AggregateError ? [error, ...error.errors] : [error])
+        .flatMap(item => item && typeof item === 'object' && 'code' in item && typeof item.code === 'string' && allowed.includes(item.code) ? [item.code] : []);
+      console.warn('opshr_actor_query_unavailable', { reason, state, failureCodes: [...new Set(failureCodes)] });
     }
     throw error;
   }
