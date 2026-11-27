@@ -26,6 +26,11 @@ async function resolveActor(sessionId: string, appId: string) {
         : /credential|rol[e]|database URL|configured MYOPS|database option|database protocol|disabled outside/i.test(message) ? 'configuration'
         : /certificate/i.test(message) ? 'certificate'
         : /permission denied/i.test(message) ? 'permission'
+        : message === 'Unapproved database or port' ? 'database_or_port'
+        : message === 'Missing server-only OPSHR_STAGING_DATABASE_URL' ? 'database_url_missing'
+        : message === 'Missing or invalid OPSHR_MYOPS_CENTRAL_PROJECT_REF' ? 'project_ref_invalid'
+        : message === 'Database URL fragments are not supported' ? 'url_fragment'
+        : /tenant or user not found/i.test(message) ? 'pooler_login'
         : 'unknown';
       console.warn('opshr_actor_query_unavailable', reason);
     }
