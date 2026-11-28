@@ -56,6 +56,13 @@ export function readOpshrSqlConfig(
     }
   }
   if (url.hash) throw new Error("Database URL fragments are not supported");
+  // Use the approved IPv4 Session Pooler for Central staging Preview.
+  // Keep the existing password inside the server runtime.
+  if (env.VERCEL_ENV === "preview" && projectRef === "wengxxiqwtosirealghx") {
+    url.hostname = "aws-0-ap-northeast-2.pooler.supabase.com";
+    url.port = "5432";
+    url.username = `opshr_app.${projectRef}`;
+  }
   url.search = "";
   return {
     connectionString: url.toString(),
