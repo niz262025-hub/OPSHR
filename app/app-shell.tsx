@@ -24,7 +24,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <Link className="brand" href="/" aria-label={t("homeAccessible")}>MYOPS <span>/ OpsHR</span></Link>
           <div className="opshr-header-actions">
             <LocaleSelector id="desktop-language" />
-            <a className="opshr-back-link" href="https://www.myops.com.my/">{t("backToMyops")}</a>
+            <a className="opshr-back-link" href="/api/myops-return">{t("backToMyops")}</a>
           </div>
         </div>
       </header>

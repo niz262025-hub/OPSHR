@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, randomBytes, sign, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, createHmac, timingSafeEqual } from 'node:crypto';
 
 export class AccessError extends Error {
   status: number;
@@ -17,30 +17,110 @@ export function canonicalJson(value: unknown): string {
 }
 export function brokerConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
   if (env.OPSHR_ENABLE_EMPLOYEES !== 'true') throw new AccessError(503);
-  const rawOrigin = env.OPSHR_MYOPS_ORIGIN || 'https://www.myops.com.my';
+  const productionOrigin = 'https://www.myops.com.my';
+  const stagingOrigins = [
+    'https://southerndotcom-website-git-feat-myop-ca0019-mohd-syaiful-nizam1.vercel.app',
+    'https://southerndotcom-website-git-fix-centr-db9115-mohd-syaiful-nizam1.vercel.app',
+    'https://southerndotcom-website-git-fix-stagi-3dae88-mohd-syaiful-nizam1.vercel.app',
+  ];
+  const preview = env.VERCEL_ENV === 'preview';
+  const rawOrigin = env.OPSHR_MYOPS_ORIGIN || (preview ? '' : productionOrigin);
   let origin: URL;
   try { origin = new URL(rawOrigin); } catch { throw new AccessError(503); }
-  if (origin.origin !== 'https://www.myops.com.my' || origin.href !== origin.origin + '/') throw new AccessError(503);
+  const trustedOrigins = preview ? stagingOrigins : [productionOrigin];
+  if (!trustedOrigins.includes(origin.origin) || origin.href !== origin.origin + '/') throw new AccessError(503);
   if ((env.OPSHR_MYOPS_APP_ID || '') !== 'opshr' || !env.OPSHR_MYOPS_PRIVATE_KEY || (env.OPSHR_COOKIE_SECRET || '').length < 32) throw new AccessError(503);
   let key: ReturnType<typeof createPrivateKey>;
   try { key = createPrivateKey(env.OPSHR_MYOPS_PRIVATE_KEY!); } catch { throw new AccessError(503); }
   if (key.asymmetricKeyType !== 'ed25519') throw new AccessError(503);
-  return { origin: origin.origin, appId: env.OPSHR_MYOPS_APP_ID!, privateKey: env.OPSHR_MYOPS_PRIVATE_KEY!, secret: env.OPSHR_COOKIE_SECRET! };
+  return { origin: origin.origin, appId: env.OPSHR_MYOPS_APP_ID!, privateKey: env.OPSHR_MYOPS_PRIVATE_KEY!, secret: env.OPSHR_COOKIE_SECRET!, keyVersion: preview && env.OPSHR_MYOPS_KEY_VERSION === 'next' ? 'next' as const : 'current' as const, organizationBound: env.OPSHR_ORGANIZATION_BINDING === 'true' };
 }
-export function signedHeaders(path: string, body: object, config: ReturnType<typeof brokerConfig>, timestamp = String(Date.now()), nonce = randomBytes(24).toString('base64url')) {
+type BrokerConfig = Omit<ReturnType<typeof brokerConfig>, 'organizationBound' | 'keyVersion'> & { organizationBound?: boolean, keyVersion?: 'current' | 'next' };
+export function signedHeaders(path: string, body: object, config: BrokerConfig, timestamp = String(Date.now()), nonce = randomBytes(24).toString('base64url')) {
   let key: ReturnType<typeof createPrivateKey>;
   try { key = createPrivateKey(config.privateKey); } catch { throw new AccessError(503); }
   if (key.asymmetricKeyType !== 'ed25519') throw new AccessError(503);
   const hash = createHash('sha256').update(canonicalJson(body)).digest('hex');
-  const message = `POST\n${path}\n${config.appId}\ncurrent\n${timestamp}\n${nonce}\n${hash}`;
-  return { 'Content-Type': 'application/json', 'x-myops-app-id': config.appId, 'x-myops-key-version': 'current', 'x-myops-timestamp': timestamp, 'x-myops-nonce': nonce, 'x-myops-signature': sign(null, Buffer.from(message), key).toString('base64url') };
+  const keyVersion = config.keyVersion ?? 'current';
+  const message = `POST\n${path}\n${config.appId}\n${keyVersion}\n${timestamp}\n${nonce}\n${hash}`;
+  return { 'Content-Type': 'application/json', 'x-myops-app-id': config.appId, 'x-myops-key-version': keyVersion, 'x-myops-timestamp': timestamp, 'x-myops-nonce': nonce, 'x-myops-signature': sign(null, Buffer.from(message), key).toString('base64url') };
 }
-export function createBroker(config: ReturnType<typeof brokerConfig>, transport: typeof fetch = fetch) {
+export function previewUpstreamDiagnostic(origin: string, path: string, response: Response) {
+  const allowedPaths = ['/api/app/redeem', '/api/app/entitlement'];
+  const vercelId = response.headers.get('x-vercel-id') || '';
+  const error = response.headers.get('x-vercel-error') || '';
+  return {
+    hostname: new URL(origin).hostname,
+    path: allowedPaths.includes(path) ? path : '[redacted]',
+    status: response.status,
+    content: (response.headers.get('content-type') || '').startsWith('application/json') ? 'json' : (response.headers.get('content-type') || '').startsWith('text/html') ? 'html' : 'other',
+    correlation: /^[a-z0-9:.-]{1,160}$/i.test(vercelId) ? vercelId : null,
+    layer: error === 'DEPLOYMENT_PROTECTION' ? 'vercel_protection' : 'unknown',
+    middlewareReached: 'unknown', handlerReached: 'unknown',
+  };
+}
+export function createBroker(config: BrokerConfig, transport: typeof fetch = fetch) {
   async function post(path: string, body: object): Promise<Record<string, unknown>> {
     let response: Response;
-    try { response = await transport(config.origin + path, { method: 'POST', headers: signedHeaders(path, body, config), body: canonicalJson(body), cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(5000) }); }
-    catch { throw new AccessError(503); }
-    if (!response.ok) throw new AccessError([401,403].includes(response.status) ? 401 : 503);
+    try {
+      const url = config.origin + path;
+      const headers = new Headers(signedHeaders(path, body, config));
+      const share = process.env.MYOPS_STAGING_SHARE_TOKEN;
+      if (process.env.VERCEL_ENV === 'preview' && config.origin === 'https://southerndotcom-website-git-fix-stagi-3dae88-mohd-syaiful-nizam1.vercel.app' && share) {
+        if (!/^[A-Za-z0-9_-]{16,256}$/.test(share)) throw new AccessError(503);
+        const bootstrapUrl = new URL(url);
+        bootstrapUrl.searchParams.set('_vercel_share', share);
+        const bootstrap = await transport(bootstrapUrl.href, {
+          method: 'GET', redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(8000),
+        });
+        const location = bootstrap.headers.get('location');
+        const cookie = bootstrap.headers.getSetCookie().find(value => value.startsWith('_vercel_jwt='))?.split(';')[0];
+        if (![302, 303, 307, 308].includes(bootstrap.status) || !location
+          || new URL(location, bootstrapUrl).href !== url || !cookie || !/^_vercel_jwt=[A-Za-z0-9._-]+$/.test(cookie)) {
+          throw new AccessError(503);
+        }
+        headers.set('Cookie', cookie);
+      }
+      response = await transport(url, { method: 'POST', headers, body: canonicalJson(body), cache: 'no-store',
+        redirect: 'error', signal: AbortSignal.timeout(process.env.VERCEL_ENV === 'preview' ? 15000 : 5000) });
+    }
+    catch (error) {
+      if (process.env.VERCEL_ENV === 'preview') {
+        const reason = error instanceof Error && ['TimeoutError', 'AbortError', 'TypeError'].includes(error.name)
+          ? error.name : 'network';
+        console.warn('opshr_myops_transport_failed', path, reason);
+      }
+      throw new AccessError(503);
+    }
+    if (!response.ok) {
+      if (process.env.VERCEL_ENV === 'preview') {
+        console.warn('opshr_preview_upstream', previewUpstreamDiagnostic(config.origin, path, response));
+        const contentType = response.headers.get('content-type') ?? '';
+        const responseKind = contentType.startsWith('application/json')
+          ? 'json' : contentType.startsWith('text/html') ? 'html' : 'other';
+        console.warn('opshr_myops_transport_failed', path, response.status, responseKind);
+        if (path === '/api/app/redeem' && response.status === 401) {
+          if (responseKind === 'json') {
+            const payload: unknown = await response.json().catch(() => null);
+            const reason = payload && typeof payload === 'object' && 'code' in payload
+              ? payload.code : null;
+            if (typeof reason === 'string' && /^[a-z][a-z_]{0,47}$/.test(reason)) {
+              console.warn('opshr_myops_redeem_rejection', reason);
+            } else {
+              const message = payload && typeof payload === 'object' && 'error' in payload ? payload.error : null;
+              const category = message === 'Application request is not authorized.' ? 'central_broker_unauthorized'
+                : message === 'Launch ticket is invalid or expired.' ? 'central_ticket_rejected'
+                : response.headers.has('x-vercel-error') ? 'vercel_error' : 'unknown_upstream_unauthorized';
+              console.warn('opshr_myops_redeem_rejection', category);
+            }
+          }
+          const publicKey = createPublicKey(config.privateKey).export({ type: 'spki', format: 'der' });
+          const fingerprint = createHash('sha256').update(publicKey).digest('hex');
+          console.warn('opshr_myops_signing_fingerprint', config.keyVersion ?? 'current', fingerprint);
+        }
+      }
+      throw new AccessError([401,403].includes(response.status) ? 401 : 503);
+    }
     try { return await response.json(); } catch { throw new AccessError(503); }
   }
   return {
@@ -48,20 +128,25 @@ export function createBroker(config: ReturnType<typeof brokerConfig>, transport:
       if (typeof ticket !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(ticket)) throw new AccessError(400);
       const result = await post('/api/app/redeem', { ticket });
       if (result.product !== 'opshr' || typeof result.session_id !== 'string' || !uuid.test(result.session_id) || typeof result.user_ref !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(result.user_ref)) throw new AccessError(401);
-      return result.session_id;
+      if (config.organizationBound) {
+        if (typeof result.organization_id !== 'string' || !uuid.test(result.organization_id)) throw new AccessError(401);
+        return { sessionId: result.session_id, organizationId: result.organization_id.toLowerCase() };
+      }
+      return { sessionId: result.session_id, organizationId: null };
     },
-    async validate(sessionId: string, activity: boolean) {
-      const result = await post('/api/app/entitlement', { session_id: sessionId, product: 'opshr', activity, sensitive: activity });
-      if (result.entitled !== true || result.session_active !== true) throw new AccessError(401);
+    async validate(sessionId: string, activity: boolean, organizationId?: string | null) {
+      if (config.organizationBound && (!organizationId || !uuid.test(organizationId))) throw new AccessError(401);
+      const result = await post('/api/app/entitlement', { session_id: sessionId, product: 'opshr', activity, sensitive: activity, ...(config.organizationBound ? { organization_id: organizationId } : {}) });
+      if (result.entitled !== true || result.session_active !== true || (config.organizationBound && result.organization_id !== organizationId)) throw new AccessError(401);
     },
   };
 }
-export function issueCookie(sessionId: string, secret: string, now = Date.now()) {
-  if (!uuid.test(sessionId) || secret.length < 32) throw new AccessError(503);
-  const payload = Buffer.from(JSON.stringify({ sid: sessionId, iat: now, exp: now + 12 * 3600000 })).toString('base64url');
+export function issueCookie(sessionId: string, secret: string, now = Date.now(), organizationId: string | null = null) {
+  if (!uuid.test(sessionId) || secret.length < 32 || (organizationId !== null && !uuid.test(organizationId))) throw new AccessError(503);
+  const payload = Buffer.from(JSON.stringify({ sid: sessionId, iat: now, exp: now + 12 * 3600000, ...(organizationId ? { org: organizationId.toLowerCase() } : {}) })).toString('base64url');
   return payload + '.' + createHmac('sha256', secret).update(payload).digest('base64url');
 }
-export function readCookie(token: string | undefined, secret: string, now = Date.now()): string | null {
+export function readCookieClaims(token: string | undefined, secret: string, now = Date.now()): { sessionId: string; organizationId: string | null } | null {
   if (!token || token.length > 1024 || secret.length < 32) return null;
   const [payload, signature, extra] = token.split('.');
   if (extra !== undefined || !/^[A-Za-z0-9_-]+$/.test(payload || '') || !/^[A-Za-z0-9_-]{43}$/.test(signature || '')) return null;
@@ -69,6 +154,9 @@ export function readCookie(token: string | undefined, secret: string, now = Date
   if (!timingSafeEqual(expected, Buffer.from(signature, 'base64url'))) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return uuid.test(data.sid) && Number.isSafeInteger(data.iat) && Number.isSafeInteger(data.exp) && data.iat <= now && data.exp > now && data.exp - data.iat === 12 * 3600000 ? data.sid : null;
+    return uuid.test(data.sid) && Number.isSafeInteger(data.iat) && Number.isSafeInteger(data.exp) && data.iat <= now && data.exp > now && data.exp - data.iat === 12 * 3600000 && (data.org === undefined || typeof data.org === 'string' && uuid.test(data.org)) ? { sessionId: data.sid, organizationId: data.org?.toLowerCase() ?? null } : null;
   } catch { return null; }
+}
+export function readCookie(token: string | undefined, secret: string, now = Date.now()): string | null {
+  return readCookieClaims(token, secret, now)?.sessionId ?? null;
 }

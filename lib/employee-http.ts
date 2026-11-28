@@ -28,18 +28,29 @@ export function failure(error: unknown): Response {
 }
 export function employeeHandler(deps: { actor: (request: Request, activity: boolean) => Promise<EmployeeActor>; repository: () => Repository }) {
   return async (request: Request, id?: string) => {
+    let phase = 'request';
     try {
       const writing = request.method !== 'GET';
       if (!['GET', 'POST', 'PUT'].includes(request.method) || request.method === 'POST' && id || request.method === 'PUT' && !id) return json({ error: 'Method not allowed' }, 405);
       if (writing) sameOrigin(request);
       if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) throw new AccessError(400);
+      phase = 'actor';
       const actor = await deps.actor(request, writing);
+      phase = 'repository';
       const repository = deps.repository();
       if (!writing) return json({ employees: await repository.list(actor) });
       const input = parseEmployeeInput(await smallJson(request));
       if (!input || validateEmployee(input, [])) return json({ error: input ? validateEmployee(input, []) : 'Maklumat pekerja tidak sah.' }, 400);
       const employee = id ? await repository.update(actor, id, input) : await repository.create(actor, input);
       return employee ? json({ employee }, id ? 200 : 201) : json({ error: 'Pekerja tidak ditemui.' }, 404);
-    } catch (error) { return failure(error); }
+    } catch (error) {
+      const response = failure(error);
+      if (process.env.VERCEL_ENV === 'preview' && response.status === 503) {
+        const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+        const knownCodes = ['ENOENT', 'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', '28P01', '42501', '42P01', '57014', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'];
+        console.warn('opshr_employee_unavailable', phase, typeof code === 'string' && knownCodes.includes(code) ? code : 'unknown');
+      }
+      return response;
+    }
   };
 }
